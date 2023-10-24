@@ -6,3 +6,5 @@ programmatic control instrument system to run remote control for measuring prope
 ```
 $ pip install --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org pyvisa
 ```
+## Reference
+[Working Remotely with Tektronix Oscilloscopes](https://www.tek.com/en/documents/technical-brief/working-remotely-with-tek-scopes-tech-brief) mentioned free user made software [TekScope Utility](https://forum.tek.com/viewtopic.php?t=140451#p284900) and official free [Tektronix Openchoice Desktop Application](https://www.tek.com/en/support/software/utility/tektronix-openchoice-desktop-application-tdspcs1--v28) and cost [Keithley KickStart Software](https://www.tek.com/en/products/keithley/keithley-control-software-bench-instruments/kickstart). Also there is official proprietary software [tekscope](https://www.tekcloud.com/tekscope/).
