@@ -5,17 +5,18 @@ def selectModel():
     return visa_address
 
 osc = model.Oscilloscope(selectModel())
-osc.reset()
-osc.autoset()
+#osc.reset()
+#osc.autoset()
 osc.ioConfig()
 osc.acqConfig()
 osc.dataQuery()
 osc.retrieveAcqSetting()
 osc.errorChecking()
-
+#osc.saveHardcopy('hardcopy')
+osc.saveWaveform('waveform')
 osc.scope.close()
 osc.rm.close()
 
-osc.createScaledVectors()
+#osc.createScaledVectors()
 #osc.plotting()
-osc.saveCurve('osc_curve')
+#osc.saveCurve('osc_curve')

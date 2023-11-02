@@ -55,6 +55,7 @@ class Oscilloscope:
     # acq config
     def acqConfig(self):       
         self.scope.write('acquire:state 0') # stop
+        #self.scope.write('SELECT:CH1 ON')
         self.scope.write('acquire:stopafter SEQUENCE') # single
         self.scope.write('acquire:state 1') # run
         t5 = time.perf_counter()
@@ -110,3 +111,37 @@ class Oscilloscope:
         for i in range(self.record):
             f.write(str(self.scaled_time[i]) + ',' + str(self.scaled_wave[i]) + '\n')
         f.close()
+    
+    def saveHardcopy(self, file_name):
+        # Save image on scope harddrive
+        self.scope.write('SAVE:IMAGE \'c:/TEMP.PNG\'')
+        self.scope.query("*OPC?")  #Make sure the image has been saved before trying to read the file
+
+        # Read file data over
+        self.scope.write('FILESYSTEM:READFILE \'c:/TEMP.PNG\'')
+        data = self.scope.read_raw() # return byte data
+
+        # Save file to local PC
+        fid = open(file_name + '.png', 'wb')
+        fid.write(data)
+        fid.close()
+        
+        # delete the temporary image file of the Oscilloscope when this is done as well. 
+        self.scope.write('FILESystem:DELEte \'c:/TEMP.PNG\'')
+
+    def saveWaveform(self, file_name):
+        # Save wafeform in csv file
+        self.scope.write('SAVe:WAVEform ALL,\'c:/TEMP.CSV\'')
+        self.scope.query("*OPC?")
+        
+        # Read file data over
+        self.scope.write('FILESYSTEM:READFILE \'c:/TEMP_ALL.CSV\'') # _ALL will be added automatically
+        data = self.scope.read_raw()
+
+        # Save file to local PC
+        fid = open(file_name + '.csv', 'w')
+        fid.write(data) # todo: convert byte to str
+        fid.close()
+        
+        # delete the temporary image file of the Oscilloscope when this is done as well. 
+        self.scope.write('FILESystem:DELEte \'c:/TEMP_ALL.CSV\'')
