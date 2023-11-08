@@ -79,7 +79,7 @@ class Oscilloscope:
         self.vscale = float(self.scope.query('wfmoutpre:ymult?')) # volts / level
         self.voff = float(self.scope.query('wfmoutpre:yzero?')) # reference voltage
         self.vpos = float(self.scope.query('wfmoutpre:yoff?')) # reference position (level)
-        self.yunit = self.scope.query('WFMInpre:YUNit?') # return "v" with /" sign
+        self.yunit = self.scope.query('WFMInpre:YUNit?')
     
     # error checking
     def errorChecking(self):
@@ -132,7 +132,7 @@ class Oscilloscope:
         fid = open(file_name + '.png', 'wb')
         fid.write(data)
         fid.close()
-        
+
         # delete the temporary image file of the Oscilloscope when this is done as well. 
         self.scope.write('FILESystem:DELEte \'c:/TEMP.PNG\'')
 
@@ -143,12 +143,17 @@ class Oscilloscope:
         
         # Read file data over
         self.scope.write('FILESYSTEM:READFILE \'c:/TEMP_ALL.CSV\'') # _ALL will be added automatically
-        data = self.scope.read_raw()
-        print(data)
+        try:
+            data = self.scope.read_raw()
+        except visa.VisaIOError as e:
+            print("There was a visa error with the following message: {0} ".format(repr(e)))
+            print("Oscilloscope Error Status Register is: "+str(self.scope.query("*ESR?")))
+            print(self.scope.query("ALLEV?"))
+
         # Save file to local PC
-        fid = open(file_name + '.csv', 'w')
-        fid.write(data) # todo: convert byte to str
+        fid = open(file_name + '.csv', 'wb')
+        fid.write(data)
         fid.close()
         
-        # delete the temporary image file of the Oscilloscope when this is done as well. 
+        # delete the temporary waveform file of the Oscilloscope when this is done as well. 
         self.scope.write('FILESystem:DELEte \'c:/TEMP_ALL.CSV\'')
