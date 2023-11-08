@@ -17,8 +17,10 @@ class Oscilloscope:
         self.scope = self.rm.open_resource(visa_address)
         self.scope.timeout = 10000 # ms
         self.scope.encoding = 'latin_1'
-        self.scope.read_termination = '\n'
+        self.scope.read_termination = ''
         self.scope.write_termination = None
+        # Good practice to flush the message buffers and clear the instrument status upon connecting.
+        self.scope.clear()
         self.scope.write('*cls') # clear ESR
         print(self.scope.query('*idn?'))
         input("""
@@ -119,7 +121,12 @@ class Oscilloscope:
 
         # Read file data over
         self.scope.write('FILESYSTEM:READFILE \'c:/TEMP.PNG\'')
-        data = self.scope.read_raw() # return byte data
+        try:
+            data = self.scope.read_raw() # return byte data
+        except visa.VisaIOError as e:
+            print("There was a visa error with the following message: {0} ".format(repr(e)))
+            print("Oscilloscope Error Status Register is: "+str(self.scope.query("*ESR?")))
+            print(self.scope.query("ALLEV?"))
 
         # Save file to local PC
         fid = open(file_name + '.png', 'wb')
@@ -137,7 +144,7 @@ class Oscilloscope:
         # Read file data over
         self.scope.write('FILESYSTEM:READFILE \'c:/TEMP_ALL.CSV\'') # _ALL will be added automatically
         data = self.scope.read_raw()
-
+        print(data)
         # Save file to local PC
         fid = open(file_name + '.csv', 'w')
         fid.write(data) # todo: convert byte to str
