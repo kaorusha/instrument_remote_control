@@ -9,6 +9,8 @@ import time # std module
 import pyvisa as visa # http://github.com/hgrecco/pyvisa
 import matplotlib.pyplot as plt # http://matplotlib.org/
 import numpy as np # http://www.numpy.org/
+from enum import Enum
+import openpyxl
 
 class Oscilloscope:
     def __init__(self, visa_address):
@@ -157,3 +159,29 @@ class Oscilloscope:
         
         # delete the temporary waveform file of the Oscilloscope when this is done as well. 
         self.scope.write('FILESystem:DELEte \'c:/TEMP_ALL.CSV\'')
+
+    class Channel(Enum):
+    # channel definition
+    # ch1:volt
+    # ch2:PWM
+    # ch3:FG signal
+    # ch4:current
+        volt = 1
+        pwm = 2
+        FG = 3
+        current = 4
+    
+    def queryMeasurement(self, type = "AMPLITUDE", channel = Channel.volt):
+        self.scope.write("MEASUREMENT:IMMED:TYPE " + type)
+        self.scope.write("MEASUREMENT:IMMED:SOURCE CH" + str(channel))
+        return self.scope.query("MEASUREMENT:IMMED:VALUE?")
+    # measureing fan speed in RPM through FG signal frequency
+    def measure(self):
+        rpm = float(self.queryMeasurement("FREQUENCY", self.Channel.FG))
+        start_up_volt = float(self.queryMeasurement())
+        max_current_on_steady = float(self.queryMeasurement("MAXIMUM", self.Channel.current))
+        avg_op_current = float(self.queryMeasurement("MEAN", self.Channel.current))
+        max_start_up_current = float(self.queryMeasurement("MAXIMUM", self.Channel.current))        
+        min_current_on_steady = float(self.queryMeasurement("MINIMUM", self.Channel.current))
+        
+    
