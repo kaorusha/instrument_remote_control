@@ -166,35 +166,38 @@ class Oscilloscope:
     # ch2:PWM
     # ch3:FG signal
     # ch4:current
-        volt = 1
+        vcc = 1
         pwm = 2
         FG = 3
         current = 4
 
     class Measure:
-        rpm = 0
-        pwm = 0
+        rpm = 0.0
+        pwm = 0.0
         start_up_volt = 0.0
         max_current_on_steady = 0.0
         avg_op_current = 0.0
         max_start_up_current = 0.0
         min_current_on_steady = 0.0
 
-    def queryMeasurement(self, type = "AMPLITUDE", channel = Channel.volt):
+    def queryMeasurement(self, type = "MEAN", channel = Channel.vcc):
         self.scope.write("MEASUREMENT:IMMED:TYPE " + type)
         self.scope.write("MEASUREMENT:IMMED:SOURCE CH" + str(channel))
-        return self.scope.query("MEASUREMENT:IMMED:VALUE?")
+        res = self.scope.query("MEASUREMENT:IMMED:VALUE?")
+        # log
+        # print("channel " + str(channel.value) + "(" + type + "): " + res) 
+        return res
     
     # measureing fan speed in RPM through FG signal frequency
     def acquireMeasure(self):
         result = self.Measure()
-        result.rpm = int(self.queryMeasurement("FREQUENCY", self.Channel.FG))
-        result.pwm = int(self.queryMeasurement("AMPLITUDE", self.Channel.pwm))
         result.start_up_volt = float(self.queryMeasurement())
+        result.pwm = float(self.queryMeasurement("PDUTY", self.Channel.pwm)) # '9.91E+37\n'
+        result.rpm = float(self.queryMeasurement("FREQUENCY", self.Channel.FG)) # '9.91E+37\n'
         result.max_current_on_steady = float(self.queryMeasurement("MAXIMUM", self.Channel.current))
         result.avg_op_current = float(self.queryMeasurement("MEAN", self.Channel.current))
-        result.max_start_up_current = float(self.queryMeasurement("MAXIMUM", self.Channel.current))        
-        result.min_current_on_steady = float(self.queryMeasurement("MINIMUM", self.Channel.current))
+        result.max_start_up_current = float(self.queryMeasurement("RMS", self.Channel.current))        
+        result.min_current_on_steady = float(self.queryMeasurement("PK2Pk", self.Channel.current))
         return result
 
     def saveResult(self, sample_no = 1, new_file_name = 'output'):
@@ -209,5 +212,3 @@ class Oscilloscope:
         sheet['O' + row] = result.max_start_up_current
         sheet['Q' + row] = result.max_current_on_steady/result.min_current_on_steady
         wb.save(new_file_name)
-
-class
