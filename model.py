@@ -170,18 +170,44 @@ class Oscilloscope:
         pwm = 2
         FG = 3
         current = 4
-    
+
+    class Measure:
+        rpm = 0
+        pwm = 0
+        start_up_volt = 0.0
+        max_current_on_steady = 0.0
+        avg_op_current = 0.0
+        max_start_up_current = 0.0
+        min_current_on_steady = 0.0
+
     def queryMeasurement(self, type = "AMPLITUDE", channel = Channel.volt):
         self.scope.write("MEASUREMENT:IMMED:TYPE " + type)
         self.scope.write("MEASUREMENT:IMMED:SOURCE CH" + str(channel))
         return self.scope.query("MEASUREMENT:IMMED:VALUE?")
-    # measureing fan speed in RPM through FG signal frequency
-    def measure(self):
-        rpm = float(self.queryMeasurement("FREQUENCY", self.Channel.FG))
-        start_up_volt = float(self.queryMeasurement())
-        max_current_on_steady = float(self.queryMeasurement("MAXIMUM", self.Channel.current))
-        avg_op_current = float(self.queryMeasurement("MEAN", self.Channel.current))
-        max_start_up_current = float(self.queryMeasurement("MAXIMUM", self.Channel.current))        
-        min_current_on_steady = float(self.queryMeasurement("MINIMUM", self.Channel.current))
-        
     
+    # measureing fan speed in RPM through FG signal frequency
+    def acquireMeasure(self):
+        result = self.Measure()
+        result.rpm = int(self.queryMeasurement("FREQUENCY", self.Channel.FG))
+        result.pwm = int(self.queryMeasurement("AMPLITUDE", self.Channel.pwm))
+        result.start_up_volt = float(self.queryMeasurement())
+        result.max_current_on_steady = float(self.queryMeasurement("MAXIMUM", self.Channel.current))
+        result.avg_op_current = float(self.queryMeasurement("MEAN", self.Channel.current))
+        result.max_start_up_current = float(self.queryMeasurement("MAXIMUM", self.Channel.current))        
+        result.min_current_on_steady = float(self.queryMeasurement("MINIMUM", self.Channel.current))
+        return result
+
+    def saveResult(self, sample_no = 1, new_file_name = 'output'):
+        result = self.acquireMeasure()
+        wb = openpyxl.load_workbook('風扇樣品檢驗報告(for RD).xlsx')
+        sheet = wb.active
+        row = str(sample_no + 9)
+        sheet['K' + row] = result.pwm
+        sheet['L' + row] = result.start_up_volt
+        sheet['M' + row] = result.max_current_on_steady
+        sheet['N' + row] = result.avg_op_current
+        sheet['O' + row] = result.max_start_up_current
+        sheet['Q' + row] = result.max_current_on_steady/result.min_current_on_steady
+        wb.save(new_file_name)
+
+class
