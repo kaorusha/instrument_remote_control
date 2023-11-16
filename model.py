@@ -1,4 +1,4 @@
-# modify from mdo_simple_plot.py
+# modify from mdo_simple_plot.py (https://github.com/tektronix)
 # python v3.x, pyvisa v1.8
 # should work with MSO70k, DPO7k, MSO5k, MDO4k, MDO3k, and MSO2k series
 # 5/6 Series MSO 
@@ -192,8 +192,10 @@ class Oscilloscope:
     def acquireMeasure(self):
         result = self.Measure()
         result.start_up_volt = float(self.queryMeasurement())
+        # MEASUrement:CH<x>:REFLevels:ABSolute:FALLHigh?
         result.pwm = float(self.queryMeasurement("PDUTY", self.Channel.pwm)) # '9.91E+37\n'
         result.rpm = float(self.queryMeasurement("FREQUENCY", self.Channel.FG)) # '9.91E+37\n'
+        
         result.max_current_on_steady = float(self.queryMeasurement("MAXIMUM", self.Channel.current))
         result.avg_op_current = float(self.queryMeasurement("MEAN", self.Channel.current))
         result.max_start_up_current = float(self.queryMeasurement("RMS", self.Channel.current))        
@@ -212,3 +214,41 @@ class Oscilloscope:
         sheet['O' + row] = result.max_start_up_current
         sheet['Q' + row] = result.max_current_on_steady/result.min_current_on_steady
         wb.save(new_file_name)
+
+class PowerSupply:
+    def __init__(self, visa_address):
+        self.visa_address = visa_address
+        self.rm = visa.ResourceManager()
+        self.scope = self.rm.open_resource(visa_address)
+        self.scope.timeout = 10000 # ms
+        #self.scope.encoding = 'latin_1'
+        self.scope.read_termination = '\n'
+        self.scope.query_termination = '\n'
+        self.scope.write_termination = None
+        # Good practice to flush the message buffers and clear the instrument status upon connecting.
+        #self.scope.clear()
+        #self.scope.write('*cls') # clear ESR
+        print(self.scope.query('*idn?'))
+        input("""
+        ACTION:
+        Power supply ready for remote control.
+        Press Enter to continue...
+        """)
+    def reset(self):
+        self.scope.write('*rst') # reset
+        t1 = time.perf_counter()
+        r = self.scope.query('*opc?') # sync
+        t2 = time.perf_counter()
+        print('reset time: {}'.format(t2 - t1))
+
+    def errorChecking(self):
+        r = int(self.scope.query('*esr?'))
+        print('event status register: 0b{:08b}'.format(r))
+        r = self.scope.query('SYSTem:ERRor?').strip()
+        print('all event messages: {}'.format(r))
+
+    def setVoltage(self, volt):
+        self.scope.write("SOUR:VOLT " + str(volt))
+
+    def setOutputOn(self):
+        self.scope.write("CONFIgure:OUTPut ON")
