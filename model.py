@@ -221,13 +221,11 @@ class PowerSupply:
         self.rm = visa.ResourceManager()
         self.scope = self.rm.open_resource(visa_address)
         self.scope.timeout = 10000 # ms
-        #self.scope.encoding = 'latin_1'
-        self.scope.read_termination = '\n'
-        self.scope.query_termination = '\n'
-        self.scope.write_termination = None
+        self.scope.read_termination = '\r\n'
+        self.scope.query_termination = '\r\n'
+        self.scope.write_termination = '\r\n'
         # Good practice to flush the message buffers and clear the instrument status upon connecting.
-        #self.scope.clear()
-        #self.scope.write('*cls') # clear ESR
+        self.scope.write('*cls') # clear ESR
         print(self.scope.query('*idn?'))
         input("""
         ACTION:
