@@ -1,4 +1,4 @@
-# modify from mdo_simple_plot.py (https://github.com/tektronix)
+# modify from mdo_simple_plot.py (https://github.com/tektronix/Programmatic-Control-Examples)
 # python v3.x, pyvisa v1.8
 # should work with MSO70k, DPO7k, MSO5k, MDO4k, MDO3k, and MSO2k series
 # 5/6 Series MSO 
@@ -250,3 +250,50 @@ class PowerSupply:
 
     def setOutputOn(self):
         self.scope.write("CONFIgure:OUTPut ON")
+
+class SignalGenerator:
+    def __init__(self, visa_address):
+        self.visa_address = visa_address
+        self.rm = visa.ResourceManager()
+        self.scope = self.rm.open_resource(visa_address)
+        self.scope.timeout = 10000 # ms
+        self.scope.read_termination = '\n'
+        self.scope.write_termination = None
+        # Good practice to flush the message buffers and clear the instrument status upon connecting.
+        self.scope.clear()
+        self.scope.write('*cls') # clear ESR
+        print(self.scope.query('*idn?'))
+        input("""
+        ACTION:
+        Signal generator ready for remote control.
+        Press Enter to continue...
+        """)
+    
+    def reset(self):
+        self.scope.write('*rst') # reset
+        t1 = time.perf_counter()
+        r = self.scope.query('*opc?') # sync
+        t2 = time.perf_counter()
+        print('reset time: {}'.format(t2 - t1))
+    
+    def errorChecking(self):
+        r = int(self.scope.query('*esr?'))
+        print('event status register: 0b{:08b}'.format(r))
+        r = self.scope.query('SYSTem:ERRor?').strip()
+        print('all event messages: {}'.format(r))
+
+    def setPWMOutput(self):
+        self.scope.write('SOURCE1:FUNCTION:SHAPE PULS')
+        self.scope.write('SOURce1:PWM:STATe ON')
+        self.scope.write('SOURce1:PWM:SOURce INTernal')
+        self.scope.write('FREQuency 25E3')
+        self.scope.write('SOURce1:PWM:INTernal:FUNCtion SQUare')
+        self.scope.write('SOURce1:VOLTage:LEVel:IMMediate:AMPLitude 5VPP')
+    
+    def setPWMDuty(self, duty = 5.0):
+        if (duty > 99.25):
+            duty = 99.25
+        if (duty < 1.0):
+            duty = 1.0
+        self.scope.write("SOURce1:PULSe:DCYCle " + str(duty))
+        r = self.scope.query('*opc?') # sync

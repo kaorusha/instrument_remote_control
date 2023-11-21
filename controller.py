@@ -5,7 +5,9 @@ def selectModel():
     # osc
     # visa_address = 'USB0::0x0699::0x0527::C033493::INSTR' # hard coded name for test
     # power supply
-    visa_address = 'USB0::0x1698::0x0837::001000005648::INSTR'
+    # visa_address = 'USB0::0x1698::0x0837::001000005648::INSTR'
+    # signal generator
+    visa_address = 'USB0::0x0699::0x0358::C013019::INSTR'
     return visa_address
 
 def autosetSingleCurvePlot():
@@ -47,5 +49,12 @@ def controlPowerSupply():
     power.scope.close()
     power.rm.close()
 
+def controlSignalGenerator():
+    pwm = model.SignalGenerator(selectModel())
+    pwm.reset()
+    pwm.setPWMOutput()
+    pwm.setPWMDuty(50)
+    pwm.errorChecking()
+
 if __name__ == '__main__':
-    controlPowerSupply()    
+    controlSignalGenerator()    
