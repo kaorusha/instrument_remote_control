@@ -12,6 +12,11 @@ import numpy as np # http://www.numpy.org/
 from enum import Enum
 import openpyxl
 
+class VisaAddress():
+    osc = ""
+    power = ""
+    signal = ""
+
 class Oscilloscope:
     def __init__(self, visa_address):
         self.visa_address = visa_address
