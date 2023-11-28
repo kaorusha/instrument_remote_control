@@ -12,16 +12,17 @@ import numpy as np # http://www.numpy.org/
 from enum import Enum
 import openpyxl
 
-class VisaAddress():
-    osc = ""
-    power = ""
-    signal = ""
+class Devices():
+    def __init__(self):
+        self.osc: Oscilloscope
+        self.power: PowerSupply
+        self.signal: SignalGenerator
 
 class Oscilloscope:
-    def __init__(self, visa_address):
-        self.visa_address = visa_address
-        self.rm = visa.ResourceManager()
-        self.scope = self.rm.open_resource(visa_address)
+    def __init__(self, name: str, scope: visa.resources.Resource):
+        self.id = name
+        self.visa_address = scope.resource_name
+        self.scope = scope
         self.scope.timeout = 10000 # ms
         self.scope.encoding = 'latin_1'
         self.scope.read_termination = ''
@@ -221,10 +222,10 @@ class Oscilloscope:
         wb.save(new_file_name)
 
 class PowerSupply:
-    def __init__(self, visa_address):
-        self.visa_address = visa_address
-        self.rm = visa.ResourceManager()
-        self.scope = self.rm.open_resource(visa_address)
+    def __init__(self, name: str, scope: visa.resources.Resource):
+        self.id = name
+        self.visa_address = scope.resource_name
+        self.scope = scope
         self.scope.timeout = 10000 # ms
         self.scope.read_termination = '\r\n'
         self.scope.query_termination = '\r\n'
@@ -257,10 +258,10 @@ class PowerSupply:
         self.scope.write("CONFIgure:OUTPut ON")
 
 class SignalGenerator:
-    def __init__(self, visa_address):
-        self.visa_address = visa_address
-        self.rm = visa.ResourceManager()
-        self.scope = self.rm.open_resource(visa_address)
+    def __init__(self, name: str, scope: visa.resources.Resource):
+        self.id = name
+        self.visa_address = scope.resource_name
+        self.scope = scope
         self.scope.timeout = 10000 # ms
         self.scope.read_termination = '\n'
         self.scope.write_termination = None
