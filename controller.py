@@ -2,6 +2,15 @@ import model
 import os
 # select model
 def selectModel(rm: model.visa.ResourceManager):
+    """Run at the beginning to map different devices with their address and names.
+    When detecting matched key word of model, initiating with matched device class.
+    ## Parameters
+    ### rm : str
+        resource manager instance
+    ## Returns
+    ### device
+        grouping power supply, signal generator, and oscilloscope for running test
+    """
     info = rm.list_resources()
     device = model.Devices()
     
