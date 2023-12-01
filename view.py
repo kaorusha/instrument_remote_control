@@ -180,3 +180,60 @@ def open_gui_return_input(
     window.close()
     return parameters
 
+import time
+class View():
+    def __init__(self) -> None:
+        sg.theme('Default 1')
+        sg.set_options(element_padding=(0, 0))
+        layout = [[sg.Text('Connected device:')],
+                [sg.Text('Power Supply:', size = (15, 1)), sg.Text(justification='left', key='power')],
+                [sg.Text('Signal Genarator:', size = (15, 1)), sg.Text(justification='left', key='signal')],
+                [sg.Text('Oscilloscope:', size = (15, 1)), sg.Text(justification='left', key='osc')],
+                #[sg.Text(size=(45, 3), font=('Helvetica', 10), justification='center', key='devices')],
+                [sg.Button('Pause', key='button', button_color=('white', '#001480')),
+                sg.Button('Reset', button_color=('white', '#007339'), key='Reset'),
+                sg.Exit(button_color=('white', 'firebrick4'), key='Exit')]]
+
+        self.window = sg.Window('Fan assembly auto test', layout, auto_size_buttons=False, keep_on_top=True, grab_anywhere=True)
+        
+        # set the controller
+        self.controller = None
+
+    def set_controller(self, controller):
+        """
+        Set the controller
+        :param controller:
+        :return:
+        """
+        self.controller = controller
+    
+    def start_button_clicked(self):
+        """
+        Handle button click event
+        :return:
+        """
+        if self.controller:
+            self.controller.start()
+
+    def show_error(self, message):
+        """
+        Show an error message
+        :param message:
+        :return:
+        """
+        pass
+
+    def show_success(self, message):
+        """
+        Show a success message
+        :param message:
+        :return:
+        """
+        pass
+
+    def hide_message(self):
+        """
+        Hide the message
+        :return:
+        """
+        pass

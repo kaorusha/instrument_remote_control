@@ -12,99 +12,112 @@ import numpy as np # http://www.numpy.org/
 from enum import Enum
 import openpyxl
 
-def selectModel(rm: visa.ResourceManager):
-    """Run at the beginning to map different devices with their address and names.
-    When detecting matched key word of model, initiating with matched device class.
-    ## Parameters
-    ### rm : str
-        resource manager instance
-    ## Returns
-    ### device
-        grouping power supply, signal generator, and oscilloscope for running test
+class Model:
     """
-    info = rm.list_resources()
-    device = Devices()
-    
-    for visa_add in info:
-        try:
-            resource = rm.open_resource(visa_add)
-            scopename = resource.query("*IDN?")
-            if '62012P' in scopename:
-                device.power = PowerSupply(scopename, resource)
-            elif 'AFG' in scopename:
-                device.signal = SignalGenerator(scopename, resource)
-            elif 'MDO' in scopename:
-                device.osc = Oscilloscope(scopename, resource)
-            elif 'MSO' in scopename:
-                device.osc = Oscilloscope(scopename, resource)
-            else:
-                print("Please check new device: " + scopename)
-            break
-        except visa.VisaIOError:
-            print("No instrument found: " + visa_add)
-            break
-        except:
-            print("Error Communicating with this device")
+    save different script of test steps
+    """
+    def __init__(self) -> None:
+        self.device = Devices()
+        self.device.osc = "TEKTRONIX,MSO46,C033493,CF:91.1CT FV:1.44.3.433"
+        self.device.power = "CHROMA,62012P-80-60,03.30.1,05648"
+        self.device.signal = "TEKTRONIX,AFG31052,C013019,SCPI:99.0 FV:1.5.2"
+
+    def runTest(self):
+        pass
+
+    def selectModel(rm: visa.ResourceManager):
+        """Run at the beginning to map different devices with their address and names.
+        When detecting matched key word of model, initiating with matched device class.
+        ## Parameters
+        ### rm : str
+            resource manager instance
+        ## Returns
+        ### device
+            grouping power supply, signal generator, and oscilloscope for running test
+        """
+        info = rm.list_resources()
+        device = Devices()
         
-    # oscilloscope idn: TEKTRONIX,MSO46,C033493,CF:91.1CT FV:1.44.3.433
-    # device.osc.visa_address = 'USB0::0x0699::0x0527::C033493::INSTR' # hard coded name for test
-    # power supply idn: CHROMA,62012P-80-60,03.30.1,05648
-    # device.power.visa_address = 'USB0::0x1698::0x0837::001000005648::INSTR'
-    # signal generator idn: TEKTRONIX,AFG31052,C013019,SCPI:99.0 FV:1.5.2
-    # device.signal.visa_address = 'USB0::0x0699::0x0358::C013019::INSTR'
-    return device
+        for visa_add in info:
+            try:
+                resource = rm.open_resource(visa_add)
+                scopename = resource.query("*IDN?")
+                if '62012P' in scopename:
+                    device.power = PowerSupply(scopename, resource)
+                elif 'AFG' in scopename:
+                    device.signal = SignalGenerator(scopename, resource)
+                elif 'MDO' in scopename:
+                    device.osc = Oscilloscope(scopename, resource)
+                elif 'MSO' in scopename:
+                    device.osc = Oscilloscope(scopename, resource)
+                else:
+                    print("Please check new device: " + scopename)
+                break
+            except visa.VisaIOError:
+                print("No instrument found: " + visa_add)
+                break
+            except:
+                print("Error Communicating with this device")
+            
+        # oscilloscope idn: TEKTRONIX,MSO46,C033493,CF:91.1CT FV:1.44.3.433
+        # device.osc.visa_address = 'USB0::0x0699::0x0527::C033493::INSTR' # hard coded name for test
+        # power supply idn: CHROMA,62012P-80-60,03.30.1,05648
+        # device.power.visa_address = 'USB0::0x1698::0x0837::001000005648::INSTR'
+        # signal generator idn: TEKTRONIX,AFG31052,C013019,SCPI:99.0 FV:1.5.2
+        # device.signal.visa_address = 'USB0::0x0699::0x0358::C013019::INSTR'
+        return device
 
-def autosetSingleCurvePlot():
-    rm = visa.ResourceManager()
-    osc = selectModel(rm).osc
-    osc.autoset()
-    osc.ioConfig()
-    osc.acqConfig()
-    osc.dataQuery()
-    osc.retrieveAcqSetting()
-    osc.errorChecking()
-    osc.scope.close()
-    rm.close()
+    def autosetSingleCurvePlot(self):
+        rm = visa.ResourceManager()
+        osc = self.selectModel(rm).osc
+        osc.autoset()
+        osc.ioConfig()
+        osc.acqConfig()
+        osc.dataQuery()
+        osc.retrieveAcqSetting()
+        osc.errorChecking()
+        osc.scope.close()
+        rm.close()
 
-    osc.createScaledVectors()
-    osc.plotting()
-    osc.saveCurve('osc_curve')
+        osc.createScaledVectors()
+        osc.plotting()
+        osc.saveCurve('osc_curve')
 
-def outputAllChannelSignal():
-    rm = visa.ResourceManager()
-    osc = selectModel(rm).osc
-    osc.saveHardcopy('hardcopy')
-    osc.saveWaveform('waveform')
-    osc.errorChecking()
-    osc.scope.close()
-    rm.close()
+    def outputAllChannelSignal(self):
+        rm = visa.ResourceManager()
+        osc = self.selectModel(rm).osc
+        osc.saveHardcopy('hardcopy')
+        osc.saveWaveform('waveform')
+        osc.errorChecking()
+        osc.scope.close()
+        rm.close()
 
-def takeMeasurement():
-    rm = visa.ResourceManager()
-    osc = selectModel(rm).osc
-    osc.acquireMeasure()
-    osc.scope.close()
-    rm.close()
+    def takeMeasurement(self):
+        rm = visa.ResourceManager()
+        osc = self.selectModel(rm).osc
+        osc.acquireMeasure()
+        osc.scope.close()
+        rm.close()
 
-def controlPowerSupply():
-    rm = visa.ResourceManager()
-    power = selectModel(rm).power
-    power.reset()
-    power.setVoltage(7)
-    power.setOutputOn()
-    power.errorChecking()
-    power.scope.close()
-    rm.close()
+    def controlPowerSupply(self):
+        rm = visa.ResourceManager()
+        power = self.selectModel(rm).power
+        power.reset()
+        power.setVoltage(7)
+        power.setOutputOn()
+        power.errorChecking()
+        power.scope.close()
+        rm.close()
 
-def controlSignalGenerator():
-    rm = visa.ResourceManager()
-    pwm = selectModel(rm).signal
-    pwm.reset()
-    pwm.setPWMOutput()
-    pwm.setPWMDuty(50)
-    pwm.errorChecking()
-    pwm.scope.close()
-    rm.close()
+    def controlSignalGenerator(self):
+        rm = visa.ResourceManager()
+        pwm = self.selectModel(rm).signal
+        pwm.reset()
+        pwm.setPWMOutput()
+        pwm.setPWMDuty(50)
+        pwm.errorChecking()
+        pwm.scope.close()
+        rm.close()
 
 class Devices():
     def __init__(self):
