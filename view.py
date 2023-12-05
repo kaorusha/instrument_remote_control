@@ -180,19 +180,19 @@ def open_gui_return_input(
     window.close()
     return parameters
 
-import time
 class View():
     def __init__(self) -> None:
         sg.theme('Default 1')
         sg.set_options(element_padding=(0, 0))
         layout = [[sg.Text('Connected device:')],
-                [sg.Text('Power Supply:', size = (15, 1)), sg.Text(justification='left', key='power')],
-                [sg.Text('Signal Genarator:', size = (15, 1)), sg.Text(justification='left', key='signal')],
-                [sg.Text('Oscilloscope:', size = (15, 1)), sg.Text(justification='left', key='osc')],
-                #[sg.Text(size=(45, 3), font=('Helvetica', 10), justification='center', key='devices')],
-                [sg.Button('Pause', key='button', button_color=('white', '#001480')),
-                sg.Button('Reset', button_color=('white', '#007339'), key='Reset'),
-                sg.Exit(button_color=('white', 'firebrick4'), key='Exit')]]
+                [sg.Text('Power Supply:', size=(15,1)), sg.Text(justification='left', key='power')],
+                [sg.Text('Signal Genarator:', size=(15,1)), sg.Text(justification='left', key='signal')],
+                [sg.Text('Oscilloscope:', size=(15,1)), sg.Text(justification='left', key='osc')],
+                [sg.Text('Sample No.', size=(15,1)), sg.Combo([1,2,3,4,5,6,7,8,9,10], default_value=1, key='SampleNumber')],
+                [sg.Text('Output directory:'), sg.InputText(), sg.FolderBrowse()],
+                [sg.Submit('Start'), sg.Button('Pause'), sg.Button('Stop'), sg.Cancel()],
+                [sg.Text(key='Status')]
+                ]
 
         self.window = sg.Window('Fan assembly auto test', layout, auto_size_buttons=False, keep_on_top=True, grab_anywhere=True)
         
