@@ -190,7 +190,11 @@ class View():
                 [sg.Text('Oscilloscope:', size=(15,1)), sg.Text(justification='left', key='osc')],
                 [sg.Text('Sample No.', size=(15,1)), sg.Combo([1,2,3,4,5,6,7,8,9,10], default_value=1, key='SampleNumber')],
                 [sg.Text('Output directory:'), sg.InputText(), sg.FolderBrowse()],
-                [sg.Submit('Start'), sg.Button('Pause'), sg.Button('Stop'), sg.Cancel()],
+                # after clicking Browse button, the following error message shows up
+                # Qt: Untested Windows version 10.0 detected!
+                # log4cplus:ERROR No appenders could be found for logger (AdSyncNamespace).
+                # log4cplus:ERROR Please initialize the log4cplus system properly.
+                [sg.Submit('Start'), sg.Button('Pause'), sg.Button('Stop'), sg.Quit()],
                 [sg.Text(key='Status')]
                 ]
 
@@ -212,8 +216,7 @@ class View():
         Handle button click event
         :return:
         """
-        if self.controller:
-            self.controller.start()
+        self.controller.start()
 
     def show_error(self, message):
         """

@@ -14,42 +14,68 @@ import openpyxl
 
 class Model:
     """
-    save different script of test steps
+    save different script of test steps.
+    use resource manager to call different instrument.
     """
     def __init__(self) -> None:
-        self.device = Devices()
-        self.device.osc = "TEKTRONIX,MSO46,C033493,CF:91.1CT FV:1.44.3.433"
-        self.device.power = "CHROMA,62012P-80-60,03.30.1,05648"
-        self.device.signal = "TEKTRONIX,AFG31052,C013019,SCPI:99.0 FV:1.5.2"
+        self._info = None
+        self.rm = visa.ResourceManager()
+        # use visa address as the key of dictionaty
+        self.dict_handle: {str: Model.Instrument}
+
+    class Device(Enum):
+        osc = 0
+        power = 1
+        signal = 2
+    
+    class Instrument:
+        def __init__(self, num:int):
+            self.type = num
+            self.handle = any
 
     def runTest(self):
         pass
 
-    def selectModel(rm: visa.ResourceManager):
-        """Run at the beginning to map different devices with their address and names.
+    def connectDevices(self):
+        """Run to map different devices with their address and names.
         When detecting matched key word of model, initiating with matched device class.
-        ## Parameters
-        ### rm : str
-            resource manager instance
-        ## Returns
-        ### device
-            grouping power supply, signal generator, and oscilloscope for running test
+        Check if there is a new device connected. If so, initiate a corresponding object.
+        If a device is disconnected, delete the corresponding object.
         """
-        info = rm.list_resources()
-        device = Devices()
-        
+        # Currently use case:
+        # 3 instrument are connected to PC via USB, which are power supply, signal generator,
+        # and oscilloscope, so only one test sample at a time.
+        # When instrument accidently disconnect, delete the corresponding instance and update
+        # connected instrument on the GUI panel. 
+        # It is possiple to test multiple samples parallely by connecting multiple devices 
+        # through TCPIP, but the code need modification.
+        info = self.rm.list_resources()
+        # if no new device connected, return
+        if info == self._info:
+            return
+        # delete disconnected instrument
+        for old_address in self._info:
+            if old_address not in info:
+                # find the corresponding scope and close it for deleting the handle
+                self.dict_handle[old_address].handle.scope.close()
+                del self.dict_handle[old_address]
+            
         for visa_add in info:
+            if visa_add in self._info: 
+                continue
+            # new device detected
             try:
-                resource = rm.open_resource(visa_add)
+                resource = self.rm.open_resource(visa_add)
                 scopename = resource.query("*IDN?")
                 if '62012P' in scopename:
-                    device.power = PowerSupply(scopename, resource)
+                    self.dict_handle[visa_add] = self.Instrument(self.Device.power)
+                    self.dict_handle[visa_add].handle = PowerSupply(scopename, resource)
                 elif 'AFG' in scopename:
-                    device.signal = SignalGenerator(scopename, resource)
-                elif 'MDO' in scopename:
-                    device.osc = Oscilloscope(scopename, resource)
-                elif 'MSO' in scopename:
-                    device.osc = Oscilloscope(scopename, resource)
+                    self.dict_handle[visa_add] = self.Instrument(self.Device.signal)
+                    self.dict_handle[visa_add].handle = SignalGenerator(scopename, resource)
+                elif 'MDO' in scopename or 'MSO' in scopename:
+                    self.dict_handle[visa_add] = self.Instrument(self.Device.osc)
+                    self.dict_handle[visa_add].handle = Oscilloscope(scopename, resource)
                 else:
                     print("Please check new device: " + scopename)
                 break
@@ -60,70 +86,55 @@ class Model:
                 print("Error Communicating with this device")
             
         # oscilloscope idn: TEKTRONIX,MSO46,C033493,CF:91.1CT FV:1.44.3.433
-        # device.osc.visa_address = 'USB0::0x0699::0x0527::C033493::INSTR' # hard coded name for test
+        # self.osc.visa_address = 'USB0::0x0699::0x0527::C033493::INSTR' # hard coded name for test
         # power supply idn: CHROMA,62012P-80-60,03.30.1,05648
-        # device.power.visa_address = 'USB0::0x1698::0x0837::001000005648::INSTR'
+        # self.power.visa_address = 'USB0::0x1698::0x0837::001000005648::INSTR'
         # signal generator idn: TEKTRONIX,AFG31052,C013019,SCPI:99.0 FV:1.5.2
-        # device.signal.visa_address = 'USB0::0x0699::0x0358::C013019::INSTR'
-        return device
+        # self.signal.visa_address = 'USB0::0x0699::0x0358::C013019::INSTR'
+        self._info = info
+        return
 
     def autosetSingleCurvePlot(self):
-        rm = visa.ResourceManager()
-        osc = self.selectModel(rm).osc
-        osc.autoset()
-        osc.ioConfig()
-        osc.acqConfig()
-        osc.dataQuery()
-        osc.retrieveAcqSetting()
-        osc.errorChecking()
-        osc.scope.close()
-        rm.close()
+        self.connectDevices()
+        self.osc.autoset()
+        self.osc.ioConfig()
+        self.osc.acqConfig()
+        self.osc.dataQuery()
+        self.osc.retrieveAcqSetting()
+        self.osc.errorChecking()
+        self.osc.scope.close()
 
-        osc.createScaledVectors()
-        osc.plotting()
-        osc.saveCurve('osc_curve')
+        self.osc.createScaledVectors()
+        self.osc.plotting()
+        self.osc.saveCurve('osc_curve')
 
     def outputAllChannelSignal(self):
-        rm = visa.ResourceManager()
-        osc = self.selectModel(rm).osc
-        osc.saveHardcopy('hardcopy')
-        osc.saveWaveform('waveform')
-        osc.errorChecking()
-        osc.scope.close()
-        rm.close()
+        self.connectDevices()
+        self.osc.saveHardcopy('hardcopy')
+        self.osc.saveWaveform('waveform')
+        self.osc.errorChecking()
+        self.osc.scope.close()
 
     def takeMeasurement(self):
-        rm = visa.ResourceManager()
-        osc = self.selectModel(rm).osc
-        osc.acquireMeasure()
-        osc.scope.close()
-        rm.close()
+        self.connectDevices()
+        self.osc.acquireMeasure()
+        self.osc.scope.close()
 
     def controlPowerSupply(self):
-        rm = visa.ResourceManager()
-        power = self.selectModel(rm).power
-        power.reset()
-        power.setVoltage(7)
-        power.setOutputOn()
-        power.errorChecking()
-        power.scope.close()
-        rm.close()
+        self.connectDevices()
+        self.power.reset()
+        self.power.setVoltage(7)
+        self.power.setOutputOn()
+        self.power.errorChecking()
+        self.power.scope.close()
 
     def controlSignalGenerator(self):
-        rm = visa.ResourceManager()
-        pwm = self.selectModel(rm).signal
-        pwm.reset()
-        pwm.setPWMOutput()
-        pwm.setPWMDuty(50)
-        pwm.errorChecking()
-        pwm.scope.close()
-        rm.close()
-
-class Devices():
-    def __init__(self):
-        self.osc: Oscilloscope
-        self.power: PowerSupply
-        self.signal: SignalGenerator
+        self.connectDevices()
+        self.signal.reset()
+        self.signal.setPWMOutput()
+        self.signal.setPWMDuty(50)
+        self.signal.errorChecking()
+        self.signal.scope.close()
 
 class Oscilloscope:
     def __init__(self, name: str, scope: visa.resources.Resource):

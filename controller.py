@@ -2,7 +2,7 @@ import model
 import view
 
 class Controller:
-    def __init__(self, model, view) -> None:
+    def __init__(self, model:model.Model, view:view.View) -> None:
         self.model = model
         self.view = view
 
@@ -12,12 +12,14 @@ class Controller:
         """
         try:
             # run all test
-            self.model.test()
+            self.model.runTest()
             # show success message
             self.view.show_success('Test completed.')
         except ValueError as error:
             # show an error message
             self.view.show_error(error)
+    def deviceReady(self):
+        return True
 
 import time
 class App():
@@ -26,20 +28,29 @@ class App():
         self._view = view.View()
         self._controller = Controller(self._model, self._view)
         self._view.set_controller(self._controller)
+    
+    def findDevice(self):
+        return ""
 
     def mainloop(self):
         while (True):
             # --------- Read and update window --------
             event, values = self._view.window.read(timeout=1000)
-            # print(event, values)
-            id = self._model.device # todo: call selectmodel()
+            print(event, values)
+            #self._model.connectDevices()
             # --------- Display updates in window --------
-            self._view.window['power'].update('{}'.format(id.power))
-            self._view.window['signal'].update('{}'.format(id.signal))
-            self._view.window['osc'].update('{}'.format(id.osc))
-            if event == view.sg.WIN_CLOSED or event == 'Cancel':
+            # scan dictionary and get appended str
+            str_power = self.findDevice(model.Model.Device.power)
+            str_signal = self.findDevice(model.Model.Device.signal)
+            str_osc = self.findDevice(model.Model.Device.osc)
+            self._view.window['power'].update('{}'.format(str_power)))
+            self._view.window['signal'].update('{}'.format(str_signal))
+            self._view.window['osc'].update('{}'.format(str_osc))
+            if event == view.sg.WIN_CLOSED or event == 'Quit':
                 break
             if event == 'Start':
+                if self._controller.deviceReady() == False:
+                    print( "popup rewire request")
                 # change the "status" element to be the value of "sample number" element
                 self._view.window['Status'].update("Start testing sample number " + str(values['SampleNumber']) + "...")
         self._view.window.close()
