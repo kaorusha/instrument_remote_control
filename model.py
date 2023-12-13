@@ -11,36 +11,40 @@ import matplotlib.pyplot as plt # http://matplotlib.org/
 import numpy as np # http://www.numpy.org/
 from enum import Enum
 import openpyxl
+from typing import Dict, NewType
+
+class TypeEnum(Enum):
+    osc = 0
+    power = 1
+    signal = 2
 
 class Model:
     """
-    save different script of test steps.
-    use resource manager to call different instrument.
+    Save different script of test steps.
+    Use resource manager to call different instrument.
+    Save an instrument dictionary.
     """
-    def __init__(self) -> None:
-        self._info = None
-        self.rm = visa.ResourceManager()
-        # use visa address as the key of dictionaty
-        self.dict_handle: {str: Model.Instrument}
-
-    class Device(Enum):
-        osc = 0
-        power = 1
-        signal = 2
+    VisaAdd = NewType('VisaAdd', str)
     
-    class Instrument:
-        def __init__(self, num:int):
+    class DictValue:
+        def __init__(self, num: TypeEnum, id:str):
             self.type = num
-            self.handle = any
+            self.id = id
+
+    def __init__(self) -> None:
+        self._info: tuple[str]
+        self.rm = visa.ResourceManager()
+        self.inst_dict: Dict[Model.VisaAdd, Model.DictValue]
+        self.osc: Oscilloscope
+        self.power: PowerSupply
+        self.signal: SignalGenerator
 
     def runTest(self):
         pass
 
-    def connectDevices(self):
+    def listDevices(self):
         """Run to map different devices with their address and names.
-        When detecting matched key word of model, initiating with matched device class.
-        Check if there is a new device connected. If so, initiate a corresponding object.
-        If a device is disconnected, delete the corresponding object.
+        Catagorize the model by detecting matched key word
         """
         # Currently use case:
         # 3 instrument are connected to PC via USB, which are power supply, signal generator,
@@ -50,15 +54,34 @@ class Model:
         # It is possiple to test multiple samples parallely by connecting multiple devices 
         # through TCPIP, but the code need modification.
         info = self.rm.list_resources()
-        # if no new device connected, return
+        # info = ['USB0::0x0699::0x0527::C033493::INSTR', 'USB0::0x1698::0x0837::001000005648::INSTR', 'USB0::0x0699::0x0358::C013019::INSTR']
+        # oscilloscope idn: TEKTRONIX,MSO46,C033493,CF:91.1CT FV:1.44.3.433
+        # visa_address = 'USB0::0x0699::0x0527::C033493::INSTR'
+        # power supply idn: CHROMA,62012P-80-60,03.30.1,05648
+        # visa_address = 'USB0::0x1698::0x0837::001000005648::INSTR'
+        # signal generator idn: TEKTRONIX,AFG31052,C013019,SCPI:99.0 FV:1.5.2
+        # visa_address = 'USB0::0x0699::0x0358::C013019::INSTR'
+        
+        # if no new device connected, return.
+        # Because the tuple is ordered, element on and off the line will be insert in a structure
         if info == self._info:
             return
         # delete disconnected instrument
         for old_address in self._info:
             if old_address not in info:
-                # find the corresponding scope and close it for deleting the handle
-                self.dict_handle[old_address].handle.scope.close()
-                del self.dict_handle[old_address]
+                # find the corresponding address and remove it
+                if self.inst_dict[old_address].type == TypeEnum.osc:
+                    self.osc.update = True
+                    self.osc.list.remove(old_address)
+                elif self.inst_dict[old_address].type == TypeEnum.power:
+                    self.power.update = True
+                    self.power.list.remove(old_address)
+                elif self.inst_dict[old_address].type == TypeEnum.signal:
+                    self.signal.update = True
+                    self.signal.list.remove(old_address)
+                else:
+                    print("unspecified instrument type.")
+                self.inst_dict.pop(old_address)
             
         for visa_add in info:
             if visa_add in self._info: 
@@ -68,14 +91,17 @@ class Model:
                 resource = self.rm.open_resource(visa_add)
                 scopename = resource.query("*IDN?")
                 if '62012P' in scopename:
-                    self.dict_handle[visa_add] = self.Instrument(self.Device.power)
-                    self.dict_handle[visa_add].handle = PowerSupply(scopename, resource)
+                    self.inst_dict[visa_add] = self.DictValue(TypeEnum.power, scopename)
+                    self.power.list.append(scopename)
+                    self.power.update = True
                 elif 'AFG' in scopename:
-                    self.dict_handle[visa_add] = self.Instrument(self.Device.signal)
-                    self.dict_handle[visa_add].handle = SignalGenerator(scopename, resource)
+                    self.inst_dict[visa_add] = self.DictValue(TypeEnum.signal, scopename)
+                    self.signal.list.append(scopename)
+                    self.signal.update = True
                 elif 'MDO' in scopename or 'MSO' in scopename:
-                    self.dict_handle[visa_add] = self.Instrument(self.Device.osc)
-                    self.dict_handle[visa_add].handle = Oscilloscope(scopename, resource)
+                    self.inst_dict[visa_add] = self.DictValue(TypeEnum.osc, scopename)
+                    self.osc.list.append(scopename)
+                    self.osc.update = True
                 else:
                     print("Please check new device: " + scopename)
                 break
@@ -84,15 +110,18 @@ class Model:
                 break
             except:
                 print("Error Communicating with this device")
-            
-        # oscilloscope idn: TEKTRONIX,MSO46,C033493,CF:91.1CT FV:1.44.3.433
-        # self.osc.visa_address = 'USB0::0x0699::0x0527::C033493::INSTR' # hard coded name for test
-        # power supply idn: CHROMA,62012P-80-60,03.30.1,05648
-        # self.power.visa_address = 'USB0::0x1698::0x0837::001000005648::INSTR'
-        # signal generator idn: TEKTRONIX,AFG31052,C013019,SCPI:99.0 FV:1.5.2
-        # self.signal.visa_address = 'USB0::0x0699::0x0358::C013019::INSTR'
+
         self._info = info
         return
+
+    def connectDevices(self, result):
+        """
+        connect selected devices and initialize the resource
+        """
+        scope = self.rm.open_resource()
+        self.osc = Oscilloscope(result.osc.id, scope)
+        
+        pass
 
     def autosetSingleCurvePlot(self):
         self.connectDevices()
@@ -136,20 +165,36 @@ class Model:
         self.signal.errorChecking()
         self.signal.scope.close()
 
-class Oscilloscope:
+class Instrument:
+    """
+    a template class to store instrument informations and common base attribute using VISA resource.
+    list: For gui update. Stores all instrument's id of these class that connect to PC.
+    boolean update: notation for gui to update
+    """
     def __init__(self, name: str, scope: visa.resources.Resource):
+        self.update = False
+        self.list = list(str)
         self.id = name
         self.visa_address = scope.resource_name
         self.scope = scope
         self.scope.timeout = 10000 # ms
+    
+    def printStartMsg(self, msg:str):
+        """
+        Good practice to flush the message buffers and clear the instrument status upon connecting.
+        """
+        self.scope.write('*cls') # clear ESR
+        print(self.scope.query('*idn?'))
+        input(msg)
+
+class Oscilloscope(Instrument):
+    def __init__(self, name: str, scope: visa.resources.Resource):
+        super().__init__(name, scope)
         self.scope.encoding = 'latin_1'
         self.scope.read_termination = ''
         self.scope.write_termination = None
-        # Good practice to flush the message buffers and clear the instrument status upon connecting.
         self.scope.clear()
-        self.scope.write('*cls') # clear ESR
-        print(self.scope.query('*idn?'))
-        input("""
+        super().printStartMsg("""
         ACTION:
         Connect probe to oscilloscope Channel 1 and the probe compensation signal.
 
@@ -339,23 +384,18 @@ class Oscilloscope:
         sheet['Q' + row] = result.max_current_on_steady/result.min_current_on_steady
         wb.save(new_file_name)
 
-class PowerSupply:
+class PowerSupply(Instrument):
     def __init__(self, name: str, scope: visa.resources.Resource):
-        self.id = name
-        self.visa_address = scope.resource_name
-        self.scope = scope
-        self.scope.timeout = 10000 # ms
+        super().__init__(name, scope)
         self.scope.read_termination = '\r\n'
         self.scope.query_termination = '\r\n'
         self.scope.write_termination = '\r\n'
-        # Good practice to flush the message buffers and clear the instrument status upon connecting.
-        self.scope.write('*cls') # clear ESR
-        print(self.scope.query('*idn?'))
-        input("""
+        super().printStartMsg("""
         ACTION:
         Power supply ready for remote control.
         Press Enter to continue...
         """)
+        
     def reset(self):
         self.scope.write('*rst') # reset
         t1 = time.perf_counter()
@@ -375,19 +415,13 @@ class PowerSupply:
     def setOutputOn(self):
         self.scope.write("CONFIgure:OUTPut ON")
 
-class SignalGenerator:
+class SignalGenerator(Instrument):
     def __init__(self, name: str, scope: visa.resources.Resource):
-        self.id = name
-        self.visa_address = scope.resource_name
-        self.scope = scope
-        self.scope.timeout = 10000 # ms
+        super().__init__(name, scope)
         self.scope.read_termination = '\n'
         self.scope.write_termination = None
-        # Good practice to flush the message buffers and clear the instrument status upon connecting.
         self.scope.clear()
-        self.scope.write('*cls') # clear ESR
-        print(self.scope.query('*idn?'))
-        input("""
+        super().printStartMsg("""
         ACTION:
         Signal generator ready for remote control.
         Press Enter to continue...
