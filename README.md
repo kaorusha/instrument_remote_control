@@ -40,7 +40,9 @@ pip install --trusted-host pypi.org --trusted-host pypi.python.org --trusted-hos
 
 #### openpyxl
 
-#### PySimpleGUI
+Ouputing report to an excel form.
+
+#### [PySimpleGUI](https://www.pysimplegui.org/en/latest/)
 
 ## Reference
 
