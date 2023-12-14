@@ -32,7 +32,6 @@ class Model:
             self.id = id
 
     def __init__(self) -> None:
-        self._info: tuple[str]
         self.rm = visa.ResourceManager()
         self.inst_dict: Dict[Model.VisaAdd, Model.DictValue]
         self.osc: Oscilloscope
@@ -44,7 +43,9 @@ class Model:
 
     def listDevices(self):
         """Run to map different devices with their address and names.
-        Catagorize the model by detecting matched key word
+        Catagorize the model by detecting matched key word, update the following attribute:
+        * list_id: corresponding instrument class (for GUI)
+        * inst_dict: memorize the visa address and its id and type
         """
         # Currently use case:
         # 3 instrument are connected to PC via USB, which are power supply, signal generator,
@@ -62,29 +63,26 @@ class Model:
         # signal generator idn: TEKTRONIX,AFG31052,C013019,SCPI:99.0 FV:1.5.2
         # visa_address = 'USB0::0x0699::0x0358::C013019::INSTR'
         
-        # if no new device connected, return.
-        # Because the tuple is ordered, element on and off the line will be insert in a structure
-        if info == self._info:
-            return
         # delete disconnected instrument
-        for old_address in self._info:
+        for old_address in self.inst_dict.keys():
             if old_address not in info:
-                # find the corresponding address and remove it
+                id = self.inst_dict[old_address].id
+                # find the corresponding instrument and remove it from the corresponding list_id
                 if self.inst_dict[old_address].type == TypeEnum.osc:
                     self.osc.update = True
-                    self.osc.list.remove(old_address)
+                    self.osc.list_id.remove(id)
                 elif self.inst_dict[old_address].type == TypeEnum.power:
                     self.power.update = True
-                    self.power.list.remove(old_address)
+                    self.power.list_id.remove(id)
                 elif self.inst_dict[old_address].type == TypeEnum.signal:
                     self.signal.update = True
-                    self.signal.list.remove(old_address)
+                    self.signal.list_id.remove(id)
                 else:
                     print("unspecified instrument type.")
                 self.inst_dict.pop(old_address)
             
         for visa_add in info:
-            if visa_add in self._info: 
+            if visa_add in self.inst_dict: 
                 continue
             # new device detected
             try:
@@ -92,15 +90,15 @@ class Model:
                 scopename = resource.query("*IDN?")
                 if '62012P' in scopename:
                     self.inst_dict[visa_add] = self.DictValue(TypeEnum.power, scopename)
-                    self.power.list.append(scopename)
+                    self.power.list_id.append(scopename)
                     self.power.update = True
                 elif 'AFG' in scopename:
                     self.inst_dict[visa_add] = self.DictValue(TypeEnum.signal, scopename)
-                    self.signal.list.append(scopename)
+                    self.signal.list_id.append(scopename)
                     self.signal.update = True
                 elif 'MDO' in scopename or 'MSO' in scopename:
                     self.inst_dict[visa_add] = self.DictValue(TypeEnum.osc, scopename)
-                    self.osc.list.append(scopename)
+                    self.osc.list_id.append(scopename)
                     self.osc.update = True
                 else:
                     print("Please check new device: " + scopename)
@@ -111,7 +109,6 @@ class Model:
             except:
                 print("Error Communicating with this device")
 
-        self._info = info
         return
 
     def connectDevices(self, result):
@@ -173,7 +170,7 @@ class Instrument:
     """
     def __init__(self, name: str, scope: visa.resources.Resource):
         self.update = False
-        self.list = list(str)
+        self.list_id = list(str)
         self.id = name
         self.visa_address = scope.resource_name
         self.scope = scope
