@@ -185,9 +185,9 @@ class View():
         sg.theme('Default 1')
         sg.set_options(element_padding=(0, 0))
         layout = [[sg.Text('Connected device:')],
-                [sg.Text('Power Supply:', size=(15,1)), sg.Text(justification='left', key='power')],
-                [sg.Text('Signal Genarator:', size=(15,1)), sg.Text(justification='left', key='signal')],
-                [sg.Text('Oscilloscope:', size=(15,1)), sg.Text(justification='left', key='osc')],
+                [sg.Text('Power Supply:', size=(15,1)), sg.Combo(key='power', values={}, size=(50 ,1))],
+                [sg.Text('Signal Genarator:', size=(15,1)), sg.Combo(key='signal', values={}, size=(50 ,1))],
+                [sg.Text('Oscilloscope:', size=(15,1)), sg.Combo(key='osc', values={}, size=(50 ,1))],
                 [sg.Text('Sample No.', size=(15,1)), sg.Combo([1,2,3,4,5,6,7,8,9,10], default_value=1, key='SampleNumber')],
                 [sg.Text('Output directory:'), sg.InputText(), sg.FolderBrowse()],
                 # after clicking Browse button, the following error message shows up
