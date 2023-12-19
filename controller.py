@@ -37,6 +37,9 @@ class Controller:
         self.updatDeviceList(self.model.power, 'power')
     
     def updatDeviceList(self, inst:model.Instrument, type:str):
+        """
+        update the dropdown list of instrument of the app, if there is only 1 instrument of that type, select it automatically
+        """
         if inst.update == True:
             self.view.window[type].update(values = inst.list_id)
             inst.update = False

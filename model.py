@@ -81,6 +81,7 @@ class Model:
         Catagorize the model by detecting matched key word, update the following attribute:
         * list_id: corresponding instrument class (for GUI)
         * inst_dict: memorize the visa address and its id and type
+        * id_dict: if user select instrument from GUI, this dictionary memorize its address
         """
         # Currently use case:
         # 3 instrument are connected to PC via USB, which are power supply, signal generator,
@@ -169,7 +170,7 @@ class Model:
 
     def connectDevice(self, visa_add, inst:Instrument):
         """
-        connect selected devices
+        connect selected devices and call open_resource to enable communication
         """
         try:
             inst.scope = self.rm.open_resource(visa_add)
@@ -183,7 +184,7 @@ class Model:
             return False
 
     def autosetSingleCurvePlot(self):
-        self.connectDevices()
+        self.connectDevice('USB0::0x0699::0x0527::C033493::INSTR') # test single function through hard coded visa address
         self.osc.autoset()
         self.osc.ioConfig()
         self.osc.acqConfig()
@@ -197,19 +198,19 @@ class Model:
         self.osc.saveCurve('osc_curve')
 
     def outputAllChannelSignal(self):
-        self.connectDevices()
+        self.connectDevice('USB0::0x0699::0x0527::C033493::INSTR') # test single function through hard coded visa address
         self.osc.saveHardcopy('hardcopy')
         self.osc.saveWaveform('waveform')
         self.osc.errorChecking()
         self.osc.scope.close()
 
     def takeMeasurement(self):
-        self.connectDevices()
+        self.connectDevice('USB0::0x0699::0x0527::C033493::INSTR') # test single function through hard coded visa address
         self.osc.acquireMeasure()
         self.osc.scope.close()
 
     def controlPowerSupply(self):
-        self.connectDevices()
+        self.connectDevice('USB0::0x1698::0x0837::001000005648::INSTR') # test single instrument through hard coded visa address
         self.power.reset()
         self.power.setVoltage(7)
         self.power.setOutputOn()
@@ -217,7 +218,7 @@ class Model:
         self.power.scope.close()
 
     def controlSignalGenerator(self):
-        self.connectDevices()
+        self.connectDevice('USB0::0x0699::0x0358::C013019::INSTR') # test single instrument through hard coded visa address
         self.signal.reset()
         self.signal.setPWMOutput()
         self.signal.setPWMDuty(50)
