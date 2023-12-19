@@ -11,12 +11,37 @@ import matplotlib.pyplot as plt # http://matplotlib.org/
 import numpy as np # http://www.numpy.org/
 from enum import Enum
 import openpyxl
-from typing import Dict, NewType
 
 class TypeEnum(Enum):
     osc = 0
     power = 1
     signal = 2
+
+class Instrument:
+    """
+    a template class to store instrument informations and common base attribute using VISA resource.
+    list: For gui update. Stores all instrument's id of these class that connect to PC.
+    boolean update: notation for gui to update
+    """
+    def __init__(self):
+        self.update = False
+        self.list_id = list()
+        self.id: str
+        self.scope: visa.resources.Resource
+    
+    def printStartMsg(self, msg:str):
+        """
+        Good practice to flush the message buffers and clear the instrument status upon connecting.
+        """
+        self.scope.write('*cls') # clear ESR
+        print(self.scope.query('*idn?'))
+        input(msg)
+
+    def setScope():
+        """
+        Base function for child class to set different termination signal of each instrument
+        """
+        pass
 
 class Model:
     """
@@ -24,7 +49,6 @@ class Model:
     Use resource manager to call different instrument.
     Save an instrument dictionary.
     """
-    VisaAdd = NewType('VisaAdd', str)
     
     class DictValue:
         def __init__(self, num: TypeEnum, id:str):
@@ -33,10 +57,21 @@ class Model:
 
     def __init__(self) -> None:
         self.rm = visa.ResourceManager()
-        self.inst_dict: Dict[Model.VisaAdd, Model.DictValue]
-        self.osc: Oscilloscope
-        self.power: PowerSupply
-        self.signal: SignalGenerator
+        self.inst_dict = dict()
+        """
+        dictionary
+        * key: visa address
+        * value: DictValue
+        """
+        self.id_dict = dict()
+        """
+        dictionary
+        * key: id
+        * value: vida address
+        """
+        self.osc = Oscilloscope()
+        self.power = PowerSupply()
+        self.signal = SignalGenerator()
 
     def runTest(self):
         pass
@@ -54,40 +89,22 @@ class Model:
         # connected instrument on the GUI panel. 
         # It is possiple to test multiple samples parallely by connecting multiple devices 
         # through TCPIP, but the code need modification.
-        info = self.rm.list_resources()
-        # info = ['USB0::0x0699::0x0527::C033493::INSTR', 'USB0::0x1698::0x0837::001000005648::INSTR', 'USB0::0x0699::0x0358::C013019::INSTR']
+        # info = self.rm.list_resources()
+        info = ['USB0::0x0699::0x0527::C033493::INSTR', 'USB0::0x1698::0x0837::001000005648::INSTR', 'USB0::0x0699::0x0358::C013019::INSTR']
         # oscilloscope idn: TEKTRONIX,MSO46,C033493,CF:91.1CT FV:1.44.3.433
         # visa_address = 'USB0::0x0699::0x0527::C033493::INSTR'
         # power supply idn: CHROMA,62012P-80-60,03.30.1,05648
         # visa_address = 'USB0::0x1698::0x0837::001000005648::INSTR'
         # signal generator idn: TEKTRONIX,AFG31052,C013019,SCPI:99.0 FV:1.5.2
         # visa_address = 'USB0::0x0699::0x0358::C013019::INSTR'
-        
-        # delete disconnected instrument
-        for old_address in self.inst_dict.keys():
-            if old_address not in info:
-                id = self.inst_dict[old_address].id
-                # find the corresponding instrument and remove it from the corresponding list_id
-                if self.inst_dict[old_address].type == TypeEnum.osc:
-                    self.osc.update = True
-                    self.osc.list_id.remove(id)
-                elif self.inst_dict[old_address].type == TypeEnum.power:
-                    self.power.update = True
-                    self.power.list_id.remove(id)
-                elif self.inst_dict[old_address].type == TypeEnum.signal:
-                    self.signal.update = True
-                    self.signal.list_id.remove(id)
-                else:
-                    print("unspecified instrument type.")
-                self.inst_dict.pop(old_address)
             
         for visa_add in info:
-            if visa_add in self.inst_dict: 
+            if self.inst_dict and visa_add in self.inst_dict: 
                 continue
             # new device detected
             try:
-                resource = self.rm.open_resource(visa_add)
-                scopename = resource.query("*IDN?")
+                scopename = self.getScopeName(visa_add)
+                self.id_dict[scopename] = visa_add
                 if '62012P' in scopename:
                     self.inst_dict[visa_add] = self.DictValue(TypeEnum.power, scopename)
                     self.power.list_id.append(scopename)
@@ -109,16 +126,61 @@ class Model:
             except:
                 print("Error Communicating with this device")
 
+        # delete disconnected instrument
+        if (self.inst_dict):
+            for old_address in self.inst_dict.keys():
+                if old_address not in info:
+                    id = self.inst_dict[old_address].id
+                    self.id_dict.pop(id)
+                    # find the corresponding instrument and remove it from the corresponding list_id
+                    if self.inst_dict[old_address].type == TypeEnum.osc:
+                        self.osc.update = True
+                        self.osc.list_id.remove(id)
+                    elif self.inst_dict[old_address].type == TypeEnum.power:
+                        self.power.update = True
+                        self.power.list_id.remove(id)
+                    elif self.inst_dict[old_address].type == TypeEnum.signal:
+                        self.signal.update = True
+                        self.signal.list_id.remove(id)
+                    else:
+                        print("unspecified instrument type.")
+                    self.inst_dict.pop(old_address)
         return
+    
+    def getScopeName(self, visa_add:str):
+        """
+        open visa address as resource and ask the id of that instrument, close the used resource and return the instrument id
+        """
+        try: 
+            resource = self.rm.open_resource(visa_add)
+            scopename = resource.query("*IDN?")
+            # close unused scope
+            resource.close()
+        except:
+            if visa_add == 'USB0::0x0699::0x0527::C033493::INSTR': # osc
+                scopename = 'TEKTRONIX,MSO46,C033493,CF:91.1CT FV:1.44.3.433'
+            elif visa_add == 'USB0::0x1698::0x0837::001000005648::INSTR': # power supply
+                scopename = 'CHROMA,62012P-80-60,03.30.1,05648'
+            elif visa_add == 'USB0::0x0699::0x0358::C013019::INSTR': # signal generator
+                scopename = 'TEKTRONIX,AFG31052,C013019,SCPI:99.0 FV:1.5.2'
+            else:
+                print("unknown device")
+        return scopename
 
-    def connectDevices(self, result):
+    def connectDevice(self, visa_add, inst:Instrument):
         """
-        connect selected devices and initialize the resource
+        connect selected devices
         """
-        scope = self.rm.open_resource()
-        self.osc = Oscilloscope(result.osc.id, scope)
-        
-        pass
+        try:
+            inst.scope = self.rm.open_resource(visa_add)
+            inst.setScope()
+            return True
+        except visa.VisaIOError:
+            print("No instrument found: " + visa_add)
+            return False
+        except:
+            print("Error Communicating with" + visa_add)
+            return False
 
     def autosetSingleCurvePlot(self):
         self.connectDevices()
@@ -162,31 +224,12 @@ class Model:
         self.signal.errorChecking()
         self.signal.scope.close()
 
-class Instrument:
-    """
-    a template class to store instrument informations and common base attribute using VISA resource.
-    list: For gui update. Stores all instrument's id of these class that connect to PC.
-    boolean update: notation for gui to update
-    """
-    def __init__(self, name: str, scope: visa.resources.Resource):
-        self.update = False
-        self.list_id = list(str)
-        self.id = name
-        self.visa_address = scope.resource_name
-        self.scope = scope
-        self.scope.timeout = 10000 # ms
-    
-    def printStartMsg(self, msg:str):
-        """
-        Good practice to flush the message buffers and clear the instrument status upon connecting.
-        """
-        self.scope.write('*cls') # clear ESR
-        print(self.scope.query('*idn?'))
-        input(msg)
-
 class Oscilloscope(Instrument):
-    def __init__(self, name: str, scope: visa.resources.Resource):
-        super().__init__(name, scope)
+    def __init__(self):
+        super().__init__()
+    
+    def setScope(self):
+        self.scope.timeout = 10000 # ms
         self.scope.encoding = 'latin_1'
         self.scope.read_termination = ''
         self.scope.write_termination = None
@@ -382,8 +425,10 @@ class Oscilloscope(Instrument):
         wb.save(new_file_name)
 
 class PowerSupply(Instrument):
-    def __init__(self, name: str, scope: visa.resources.Resource):
-        super().__init__(name, scope)
+    def __init__(self):
+        super().__init__()
+
+    def setScope(self):
         self.scope.read_termination = '\r\n'
         self.scope.query_termination = '\r\n'
         self.scope.write_termination = '\r\n'
@@ -413,8 +458,10 @@ class PowerSupply(Instrument):
         self.scope.write("CONFIgure:OUTPut ON")
 
 class SignalGenerator(Instrument):
-    def __init__(self, name: str, scope: visa.resources.Resource):
-        super().__init__(name, scope)
+    def __init__(self):
+        super().__init__()
+    
+    def setScope(self):
         self.scope.read_termination = '\n'
         self.scope.write_termination = None
         self.scope.clear()

@@ -18,8 +18,30 @@ class Controller:
         except ValueError as error:
             # show an error message
             self.view.show_error(error)
-    def deviceReady(self):
-        return True
+    
+    def deviceReady(self, osc_id: str, power_id:str, signal_id:str):
+        """
+        check if selected device is online
+        """
+        if self.model.connectDevice(self.model.id_dict[osc_id], self.model.osc) and\
+           self.model.connectDevice(self.model.id_dict[power_id], self.model.power) and\
+           self.model.connectDevice(self.model.id_dict[signal_id], self.model.signal):
+            return True
+        else:
+            return False
+    
+    def selectDevices(self):
+        self.model.listDevices()
+        self.updatDeviceList(self.model.osc, 'osc')
+        self.updatDeviceList(self.model.signal, 'signal')
+        self.updatDeviceList(self.model.power, 'power')
+    
+    def updatDeviceList(self, inst:model.Instrument, type:str):
+        if inst.update == True:
+            self.view.window[type].update(values = inst.list_id)
+            inst.update = False
+            if len(inst.list_id) == 1:
+                self.view.window[type].update(value = inst.list_id[0])
 
 import time
 class App():
@@ -37,19 +59,13 @@ class App():
             # --------- Read and update window --------
             event, values = self._view.window.read(timeout=1000)
             print(event, values)
-            #self._model.connectDevices()
             # --------- Display updates in window --------
-            # scan dictionary and get appended str
-            str_power = self.findDevice(model.Model.Device.power)
-            str_signal = self.findDevice(model.Model.Device.signal)
-            str_osc = self.findDevice(model.Model.Device.osc)
-            self._view.window['power'].update('{}'.format(str_power)))
-            self._view.window['signal'].update('{}'.format(str_signal))
-            self._view.window['osc'].update('{}'.format(str_osc))
+            self._controller.selectDevices()
+
             if event == view.sg.WIN_CLOSED or event == 'Quit':
                 break
             if event == 'Start':
-                if self._controller.deviceReady() == False:
+                if self._controller.deviceReady(values['osc'], values['power'], values['signal']) == False:
                     print( "popup rewire request")
                 # change the "status" element to be the value of "sample number" element
                 self._view.window['Status'].update("Start testing sample number " + str(values['SampleNumber']) + "...")
