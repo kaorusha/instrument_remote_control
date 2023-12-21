@@ -29,7 +29,7 @@ Typical usage example:
 """
 
 import PySimpleGUI as sg
-
+from enum import Enum
 
 class InstrumentOption:
     """Class that encapsulates information about instrument parameters to present on GUI.
@@ -202,6 +202,47 @@ class View():
         
         # set the controller
         self.controller = None
+        # set finite state machine initial state
+        self.state = View.State.Idle
+
+    class State(Enum):
+        Idle = 0
+        Testing = 1
+        Paused = 2
+        Stopped = 3
+
+    class Event(Enum):
+        Start = 'Start'
+        Pause = 'Pause'
+        Stop = 'Stop'
+        
+    def fsm(self, event, values):
+        """
+        finite state machine to transition between states
+        """
+        if self.state == View.State.Idle:
+            if event == View.Event.Start.value:
+                self.state = View.State.Testing
+                self.start_button_clicked(values)
+        elif self.state == View.State.Testing:
+            if event == View.Event.Pause.value:
+                self.state = View.State.Paused
+                self.pause_button_clicked()
+            elif event == View.Event.Stop.value:
+                self.state = View.State.Stopped
+                self.stop_button_clicked()
+        elif self.state == View.State.Paused:
+            if event == View.Event.Start.value:
+                self.controller.resumeTest()
+            elif event == View.Event.Stop.value:
+                self.state = View.State.Stopped
+                self.start_button_clicked()
+        elif self.state == View.State.Stopped:
+            if event == View.Event.Start.value:
+                self.state = View.State.Testing
+                self.start_button_clicked(values)
+        else:
+            print("Invalid state")
 
     def set_controller(self, controller):
         """
@@ -211,12 +252,25 @@ class View():
         """
         self.controller = controller
     
-    def start_button_clicked(self):
+    def start_button_clicked(self, values):
         """
         Handle button click event
         :return:
         """
-        self.controller.start()
+        if self.controller:
+            if self.controller.deviceReady(values['osc'], values['power'], values['signal']) == False:
+                sg.popup_ok('Connect oscillator, power supply, and signal generator.', title= 'Check Instrument connection.', keep_on_top= True)
+                self.state = View.State.Idle
+                return
+            # change the "status" element to be the value of "sample number" element
+            self.window['Status'].update("Start testing sample number " + str(values['SampleNumber']) + "...")
+            self.controller.start()
+
+    def pause_button_clicked(self):
+        pass
+
+    def stop_button_clicked(self):
+        pass
 
     def show_error(self, message):
         """

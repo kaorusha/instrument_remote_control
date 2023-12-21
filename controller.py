@@ -67,11 +67,7 @@ class App():
 
             if event == view.sg.WIN_CLOSED or event == 'Quit':
                 break
-            if event == 'Start':
-                if self._controller.deviceReady(values['osc'], values['power'], values['signal']) == False:
-                    print( "popup rewire request")
-                # change the "status" element to be the value of "sample number" element
-                self._view.window['Status'].update("Start testing sample number " + str(values['SampleNumber']) + "...")
+            self._view.fsm(event, values)
         self._view.window.close()
 
 if __name__ == '__main__':
