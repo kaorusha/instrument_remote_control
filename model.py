@@ -178,10 +178,8 @@ class Model:
             return True
         except visa.VisaIOError:
             raise ValueError("No instrument found: " + visa_add)
-            #return False
         except:
             raise ValueError("Error Communicating with" + visa_add)
-            #return False
 
     def autosetSingleCurvePlot(self):
         self.connectDevice('USB0::0x0699::0x0527::C033493::INSTR') # test single function through hard coded visa address
