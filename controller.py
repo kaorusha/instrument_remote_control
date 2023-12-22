@@ -23,12 +23,23 @@ class Controller:
         """
         check if selected device is online
         """
-        if self.model.connectDevice(self.model.id_dict[osc_id], self.model.osc) and\
-           self.model.connectDevice(self.model.id_dict[power_id], self.model.power) and\
-           self.model.connectDevice(self.model.id_dict[signal_id], self.model.signal):
-            return True
-        else:
-            return False
+        res = True
+        try:
+           self.model.connectDevice(self.model.id_dict[osc_id], self.model.osc)
+        except ValueError as e:
+            self.view.show_error(e)
+            res = False
+        try:   
+            self.model.connectDevice(self.model.id_dict[power_id], self.model.power)
+        except ValueError as e:
+            self.view.show_error(e)
+            res = False
+        try:
+            self.model.connectDevice(self.model.id_dict[signal_id], self.model.signal)
+        except ValueError as e:
+            self.view.show_error(e)
+            res = False
+        return res
     
     def selectDevices(self):
         self.model.listDevices()

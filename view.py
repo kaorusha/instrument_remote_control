@@ -195,7 +195,7 @@ class View():
                 # log4cplus:ERROR No appenders could be found for logger (AdSyncNamespace).
                 # log4cplus:ERROR Please initialize the log4cplus system properly.
                 [sg.Submit('Start'), sg.Button('Pause'), sg.Button('Stop'), sg.Quit()],
-                [sg.Text(key='Status')]
+                [sg.Multiline(size=(None, 5), expand_y=True, key='Multiline', write_only=True, reroute_cprint=True, reroute_stdout=True)]
                 ]
 
         self.window = sg.Window('Fan assembly auto test', layout, auto_size_buttons=False, keep_on_top=True, grab_anywhere=True)
@@ -263,7 +263,7 @@ class View():
                 self.state = View.State.Idle
                 return
             # change the "status" element to be the value of "sample number" element
-            self.window['Status'].update("Start testing sample number " + str(values['SampleNumber']) + "...")
+            print("Start testing sample number " + str(values['SampleNumber']) + "...")
             self.controller.start()
 
     def pause_button_clicked(self):
@@ -278,6 +278,7 @@ class View():
         :param message:
         :return:
         """
+        sg.cprint(message, text_color='red')
         pass
 
     def show_success(self, message):
@@ -286,6 +287,7 @@ class View():
         :param message:
         :return:
         """
+        sg.cprint(message, text_color='blue')
         pass
 
     def hide_message(self):
