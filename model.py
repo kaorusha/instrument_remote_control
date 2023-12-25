@@ -120,10 +120,8 @@ class Model:
                     self.osc.update = True
                 else:
                     print("Please check new device: " + scopename)
-                break
             except visa.VisaIOError:
                 print("No instrument found: " + visa_add)
-                break
             except:
                 print("Error Communicating with this device")
 
