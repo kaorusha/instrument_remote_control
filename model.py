@@ -37,6 +37,19 @@ class Instrument:
         print(self.scope.query('*idn?'))
         input(msg)
 
+    def reset(self):
+        self.scope.write('*rst') # reset
+        t1 = time.perf_counter()
+        r = self.scope.query('*opc?') # sync
+        t2 = time.perf_counter()
+        print('reset time: {}'.format(t2 - t1))
+    
+    def errorChecking(self):
+        r = int(self.scope.query('*esr?'))
+        print('event status register: 0b{:08b}'.format(r))
+        r = self.scope.query('SYSTem:ERRor?').strip()
+        print('all event messages: {}'.format(r))
+    
     def setScope():
         """
         Base function for child class to set different termination signal of each instrument
@@ -238,13 +251,6 @@ class Oscilloscope(Instrument):
         Press Enter to continue...
         """)
 
-    def reset(self):
-        self.scope.write('*rst') # reset
-        t1 = time.perf_counter()
-        r = self.scope.query('*opc?') # sync
-        t2 = time.perf_counter()
-        print('reset time: {}'.format(t2 - t1))
-
     def autoset(self):
         self.scope.write('autoset EXECUTE') # autoset
         t3 = time.perf_counter()
@@ -288,13 +294,6 @@ class Oscilloscope(Instrument):
         self.voff = float(self.scope.query('wfmoutpre:yzero?')) # reference voltage
         self.vpos = float(self.scope.query('wfmoutpre:yoff?')) # reference position (level)
         self.yunit = self.scope.query('WFMInpre:YUNit?')
-    
-    # error checking
-    def errorChecking(self):
-        r = int(self.scope.query('*esr?'))
-        print('event status register: 0b{:08b}'.format(r))
-        r = self.scope.query('allev?').strip()
-        print('all event messages: {}'.format(r))
 
     # create scaled vectors
     def createScaledVectors(self):
@@ -434,19 +433,6 @@ class PowerSupply(Instrument):
         Power supply ready for remote control.
         Press Enter to continue...
         """)
-        
-    def reset(self):
-        self.scope.write('*rst') # reset
-        t1 = time.perf_counter()
-        r = self.scope.query('*opc?') # sync
-        t2 = time.perf_counter()
-        print('reset time: {}'.format(t2 - t1))
-
-    def errorChecking(self):
-        r = int(self.scope.query('*esr?'))
-        print('event status register: 0b{:08b}'.format(r))
-        r = self.scope.query('SYSTem:ERRor?').strip()
-        print('all event messages: {}'.format(r))
 
     def setVoltage(self, volt):
         self.scope.write("SOUR:VOLT " + str(volt))
@@ -467,19 +453,6 @@ class SignalGenerator(Instrument):
         Signal generator ready for remote control.
         Press Enter to continue...
         """)
-    
-    def reset(self):
-        self.scope.write('*rst') # reset
-        t1 = time.perf_counter()
-        r = self.scope.query('*opc?') # sync
-        t2 = time.perf_counter()
-        print('reset time: {}'.format(t2 - t1))
-    
-    def errorChecking(self):
-        r = int(self.scope.query('*esr?'))
-        print('event status register: 0b{:08b}'.format(r))
-        r = self.scope.query('SYSTem:ERRor?').strip()
-        print('all event messages: {}'.format(r))
 
     def setPWMOutput(self):
         self.scope.write('SOURCE1:FUNCTION:SHAPE PULS')
