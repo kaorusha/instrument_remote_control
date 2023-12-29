@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt # http://matplotlib.org/
 import numpy as np # http://www.numpy.org/
 from enum import Enum
 import openpyxl
+import os
 
 class TypeEnum(Enum):
     osc = 0
@@ -19,7 +20,7 @@ class TypeEnum(Enum):
 
 class Instrument:
     """
-    a template class to store instrument informations and common base attribute using VISA resource.
+    a template class to store instrument information and common base attribute using VISA resource.
     list: For gui update. Stores all instrument's id of these class that connect to PC.
     boolean update: notation for gui to update
     """
@@ -88,7 +89,7 @@ class Model:
 
     def listDevices(self):
         """Run to map different devices with their address and names.
-        Catagorize the model by detecting matched key word, update the following attribute:
+        Categorize the model by detecting matched key word, update the following attribute:
         * list_id: corresponding instrument class (for GUI)
         * inst_dict: memorize the visa address and its id and type
         * id_dict: if user select instrument from GUI, this dictionary memorize its address
@@ -96,10 +97,10 @@ class Model:
         # Currently use case:
         # 3 instrument are connected to PC via USB, which are power supply, signal generator,
         # and oscilloscope, so only one test sample at a time.
-        # When instrument accidently disconnect, delete the corresponding instance and update
+        # When instrument accidentally disconnect, delete the corresponding instance and update
         # connected instrument on the GUI panel. 
-        # It is possiple to test multiple samples parallely by connecting multiple devices 
-        # through TCPIP, but the code need modification.
+        # It is possible to test multiple samples parallel by connecting multiple devices 
+        # through TCP/IP, but the code need modification.
         # info = self.rm.list_resources()
         info = ['USB0::0x0699::0x0527::C033493::INSTR', 'USB0::0x1698::0x0837::001000005648::INSTR', 'USB0::0x0699::0x0358::C013019::INSTR']
         # oscilloscope idn: TEKTRONIX,MSO46,C033493,CF:91.1CT FV:1.44.3.433
