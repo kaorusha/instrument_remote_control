@@ -86,9 +86,6 @@ class Model:
         self.power = PowerSupply()
         self.signal = SignalGenerator()
 
-    def runTest(self):
-        pass
-
     def listDevices(self):
         """Run to map different devices with their address and names.
         Catagorize the model by detecting matched key word, update the following attribute:
@@ -420,6 +417,28 @@ class Oscilloscope(Instrument):
         sheet['Q' + row] = result.max_current_on_steady/result.min_current_on_steady
         wb.save(new_file_name)
 
+    def load_report(self, new_file_name):
+        """
+        open the current editing report, if not created yet, open the template as blank report"
+        """
+        if os.path.exist(new_file_name):
+            return openpyxl.load_workbook(new_file_name)
+        else:
+            return openpyxl.load_workbook('風扇樣品檢驗報告(for RD).xlsx')
+    
+    def measure_RPM_under_PWM(self, duty = 0, fg = 3, sample_no = 1, new_file_name = 'output', column_pwm = 'E', column_rpm = 'F'):
+        """
+        under pwm duty, measure actual pwm duty and corresponding RPM from calculation of FG signal frequency divided by FG quantity
+        """
+        pwm = float(self.queryMeasurement("PDUTY", self.Channel.pwm))
+        rpm = float(self.queryMeasurement("FREQUENCY", self.Channel.FG)) / fg * 60.0
+        wb = self.load_report(new_file_name)
+        sheet = wb.active
+        row = str(sample_no + 9)
+        sheet[column_pwm + row] = pwm
+        sheet[column_rpm + row] = rpm
+        wb.save(new_file_name)
+
 class PowerSupply(Instrument):
     def __init__(self):
         super().__init__()
@@ -439,6 +458,9 @@ class PowerSupply(Instrument):
 
     def setOutputOn(self):
         self.scope.write("CONFIgure:OUTPut ON")
+    
+    def setOutputOff(self):
+        self.scope.write("CONFIgure:OUTPut OFF")
 
 class SignalGenerator(Instrument):
     def __init__(self):
