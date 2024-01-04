@@ -1,16 +1,16 @@
 import model
 import view
-from queue import PriorityQueue
 import time
 
 class Controller:
     def __init__(self, model:model.Model, view:view.View) -> None:
         self.model = model
         self.view = view
-        self.pq = PriorityQueue()
+        self.job_list = list()
         self.sample_no = 0
         self.new_file_name = ''
         self.start_time = 0
+        self.last_job = None
 
     def start(self, sample_no:int, dir:str):
         """
@@ -20,7 +20,7 @@ class Controller:
             # prepare a priority queue to store the test processes
             self.sample_no = sample_no
             self.new_file_name = dir + '/report' if dir else 'report'
-            self.initialQueue()
+            self.initialList()
             self.start_time = time.process_time()
             
         except ValueError as error:
@@ -29,22 +29,18 @@ class Controller:
 
     def runTest(self):
         """
-        execute top priority job to update the communication orders periodically with devices
+        when the state is testing, execute job to update the communication orders periodically with devices
         """
         now = time.process_time()
-        if not self.pq.empty():
-            job = self.pq.get()
+        if len(self.job_list) > 0:
+            job = self.job_list[0]
             if now - self.start_time > job[0]:
                 res = job[1]
-            else:
-                self.pq.put(job)
+                self.last_job = self.job_list.pop(0)
     
-    def initialQueue(self):
+    def initialList(self):
         """
-        test actions are store in priority queue with
-        * key: int (smaller number execute first)
-        * value: tuple(int(trigger time in sec), action)
-        
+        test actions are store in list of tuple(int(trigger time in sec), action)
         steps:
         * 0 s: reset power supply, signal generator
         * 0 s: power supply voltage 12V, signal generator pwm 0
@@ -56,19 +52,26 @@ class Controller:
         * (to be determined test process after column K)
         * show success message
         """
-        self.pq.put((2, (0, self.model.power.reset)))
-        self.pq.put((3, (0, self.model.signal.reset)))
-        self.pq.put((4, (0, self.model.power.setVoltage(12))))
-        self.pq.put((5, (0, self.model.signal.setPWMOutput)))
-        self.pq.put((6, (0, self.model.signal.setPWMDuty(0))))
-        self.pq.put((7, (1, self.model.power.setOutputOn))) 
-        self.pq.put((8, (10, self.model.osc.measure_RPM_under_PWM(0, 3, self.sample_no, self.new_file_name, 'E', 'F'))))
-        self.pq.put((9, (10, self.model.signal.setPWMDuty(50))))
-        self.pq.put((11, (20, self.model.osc.measure_RPM_under_PWM(50, 3, self.sample_no, self.new_file_name, 'G', 'H'))))
-        self.pq.put((12, (20, self.model.signal.setPWMDuty(100))))
-        self.pq.put((14, (30, self.model.osc.measure_RPM_under_PWM(100, 3, self.sample_no, self.new_file_name, 'I', 'J'))))
-        self.pq.put(15, (30, self.model.power.setOutputOff))
-        self.pq.put(16, (30, self.view.show_success('Test completed.')))
+        self.job_list.append((0, self.model.power.reset))
+        self.job_list.append((0, self.model.signal.reset))
+        self.job_list.append((0, self.model.power.setVoltage(12)))
+        self.job_list.append((0, self.model.signal.setPWMOutput))
+        self.job_list.append((0, self.model.signal.setPWMDuty(0)))
+        self.job_list.append((1, self.model.power.setOutputOn))
+        self.job_list.append((10, self.model.osc.measure_RPM_under_PWM(0, 3, self.sample_no, self.new_file_name, 'E', 'F')))
+        self.job_list.append((10, self.model.signal.setPWMDuty(50)))
+        self.job_list.append((20, self.model.osc.measure_RPM_under_PWM(50, 3, self.sample_no, self.new_file_name, 'G', 'H')))
+        self.job_list.append((20, self.model.signal.setPWMDuty(100)))
+        self.job_list.append((30, self.model.osc.measure_RPM_under_PWM(100, 3, self.sample_no, self.new_file_name, 'I', 'J')))
+        self.job_list.append((30, self.model.power.setOutputOff))
+        self.job_list.append((30, self.view.show_success('Test completed.')))
+
+    def resumeTest(self):
+        """
+        resume from pause
+        """
+        self.start_time = time.process_time()
+        self.job_list.insert(0, self.last_job)
 
     def deviceReady(self, osc_id: str, power_id:str, signal_id:str):
         """
@@ -129,7 +132,8 @@ class App():
             if event == view.sg.WIN_CLOSED or event == 'Quit':
                 break
             self._view.fsm(event, values)
-            self._controller.runTest()
+            if self._view.state == self._view.State.Testing:
+                self._controller.runTest()
         self._view.window.close()
 
 if __name__ == '__main__':
