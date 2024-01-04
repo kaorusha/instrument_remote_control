@@ -436,8 +436,11 @@ class Oscilloscope(Instrument):
         wb = self.load_report(new_file_name)
         sheet = wb.active
         row = str(sample_no + 9)
-        sheet[column_pwm + row] = pwm
-        sheet[column_rpm + row] = rpm
+        # incase the cell has already written on previous step before resuming from pause
+        if (sheet[column_pwm + row].value == None):
+            sheet[column_pwm + row] = pwm
+        if (sheet[column_rpm + row].value == None):
+            sheet[column_rpm + row] = rpm
         wb.save(new_file_name)
 
 class PowerSupply(Instrument):
