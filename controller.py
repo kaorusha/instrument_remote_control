@@ -27,6 +27,19 @@ class Controller:
             # show an error message
             self.view.show_error(error)
 
+    def pause(self):
+        """
+        when pause button is clicked, stop power supply output
+        """
+        self.model.power.setOutputOff()
+
+    def stop(self):
+        """
+        when stop button is clicked, stop power supply output, clear the job list
+        """
+        self.model.power.setOutputOff()
+        self.job_list.clear()
+
     def runTest(self):
         """
         when the state is testing, execute job to update the communication orders periodically with devices
@@ -60,8 +73,10 @@ class Controller:
         self.job_list.append((1, self.model.power.setOutputOn))
         self.job_list.append((10, self.model.osc.measure_RPM_under_PWM(0, 3, self.sample_no, self.new_file_name, 'E', 'F')))
         self.job_list.append((10, self.model.signal.setPWMDuty(50)))
+        self.job_list.append((11, self.model.power.setOutputOn))
         self.job_list.append((20, self.model.osc.measure_RPM_under_PWM(50, 3, self.sample_no, self.new_file_name, 'G', 'H')))
         self.job_list.append((20, self.model.signal.setPWMDuty(100)))
+        self.job_list.append((21, self.model.power.setOutputOn))
         self.job_list.append((30, self.model.osc.measure_RPM_under_PWM(100, 3, self.sample_no, self.new_file_name, 'I', 'J')))
         self.job_list.append((30, self.model.power.setOutputOff))
         self.job_list.append((30, self.view.show_success('Test completed.')))

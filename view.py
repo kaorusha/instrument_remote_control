@@ -186,7 +186,7 @@ class View():
         sg.set_options(element_padding=(0, 0))
         layout = [[sg.Text('Connected device:')],
                 [sg.Text('Power Supply:', size=(15,1)), sg.Combo(key='power', values={}, size=(50 ,1))],
-                [sg.Text('Signal Genarator:', size=(15,1)), sg.Combo(key='signal', values={}, size=(50 ,1))],
+                [sg.Text('Signal Generator:', size=(15,1)), sg.Combo(key='signal', values={}, size=(50 ,1))],
                 [sg.Text('Oscilloscope:', size=(15,1)), sg.Combo(key='osc', values={}, size=(50 ,1))],
                 [sg.Text('Sample No.', size=(15,1)), sg.Combo([1,2,3,4,5,6,7,8,9,10], default_value=1, key='SampleNumber')],
                 [sg.Text('Output directory:'), sg.InputText(), sg.FolderBrowse()],
@@ -233,10 +233,11 @@ class View():
                 self.stop_button_clicked()
         elif self.state == View.State.Paused:
             if event == View.Event.Start.value:
+                self.state = View.State.Testing
                 self.controller.resumeTest()
             elif event == View.Event.Stop.value:
                 self.state = View.State.Stopped
-                self.start_button_clicked()
+                self.stop_button_clicked()
         elif self.state == View.State.Stopped:
             if event == View.Event.Start.value:
                 self.state = View.State.Testing
@@ -264,13 +265,23 @@ class View():
                 return
             # change the "status" element to be the value of "sample number" element
             print("Start testing sample number " + str(values['SampleNumber']) + "...")
-            self.controller.start()
+            self.controller.start(values['SampleNumber'], values['Browse'])
 
     def pause_button_clicked(self):
-        pass
+        """
+        effective pause, stop power supply output
+        """
+        if self.controller:
+            print("pause: output stop, press start to resume the test")
+            self.controller.pause()
 
     def stop_button_clicked(self):
-        pass
+        """
+        effective stop, stop power supply and also clear the job list
+        """
+        if self.controller:
+            print("stop: output stop")
+            self.controller.stop()
 
     def show_error(self, message):
         """
