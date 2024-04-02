@@ -307,3 +307,11 @@ class View():
         :return:
         """
         pass
+
+    def pop_ok(self, message):
+        """
+        Show a pop ok message
+        :param message:
+        :return:
+        """
+        sg.popup_ok(message, keep_on_top= True)

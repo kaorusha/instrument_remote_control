@@ -51,10 +51,31 @@ class Controller:
                 res = job[1]
                 self.last_job = self.job_list.pop(0)
     
+    def popOSCWiringNote(self):
+        self.view.pop_ok("check signal generator wire connection: ch1 vcc, ch2 pwm, ch3 fg, ch4 curr")
+    
     def initialList(self):
         """
         test actions are store in list of tuple(int(trigger time in sec), action)
         steps:
+        跳出提醒：ch1 vcc, ch2 pwm, ch3 fg, ch4 curr
+        詢問spec 0% 50% 100%的RPM. CURR
+        1.  設定power voltage 12V, signal generator pwm 100
+            10s後
+            記錄RPM (freq*30(需要轉換文字的k為1000))H欄, CURRENT(MEAN) I&N欄, CURRENT(MAX) M欄
+        2.  設定signal generator pwm 50
+            記錄RPM F欄, CURRENT(MEAN) G欄
+        3.  設定signal generator pwm 0
+            記錄RPM D欄, CURRENT(MEAN) E欄
+        4.  設定power voltage 7V, signal generator pwm 100
+            freq > 0
+            確認有RPM，記錄L欄打勾
+            power off
+            詢問是否做max startup, 按確定後開始10s後記錄
+        5.  設定power voltage 13.2V, signal generator pwm100
+            詢問是否做luck, 按確定後開始10s後記錄
+            10s,記錄CURRENT(MAX) P欄
+        6.  確認有PWM及FG訊號，記錄K&R欄打勾
         * 0 s: reset power supply, signal generator
         * 0 s: power supply voltage 12V, signal generator pwm 0
         * 10 s: measure pwm / rpm, write at column E / F
@@ -118,11 +139,14 @@ class Controller:
     
     def updateDeviceList(self, inst:model.Instrument, type:str):
         """
+        if a oscilloscope is connected, show wiring note to make sure all channel are correctly wired.
         update the dropdown list of instrument of the app, if there is only 1 instrument of that type, select it automatically
         """
         if inst.update == True:
             self.view.window[type].update(values = inst.list_id)
             inst.update = False
+            if type == 'osc':
+                self.popOSCWiringNote()
             if len(inst.list_id) == 1:
                 self.view.window[type].update(value = inst.list_id[0])
 
@@ -140,7 +164,8 @@ class App():
         while (True):
             # --------- Read and update window --------
             event, values = self._view.window.read(timeout=1000)
-            print(event, values)
+            if event != '__TIMEOUT__':
+                print(event, values)
             # --------- Display updates in window --------
             self._controller.selectDevices()
 
