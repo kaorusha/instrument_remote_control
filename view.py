@@ -66,7 +66,7 @@ class InstrumentOption:
             text=self.label, size=label_length, justification="right"
         )
         tooltip_with_label = self.label
-        if self.tooltip is not "":
+        if self.tooltip != "":
             tooltip_with_label += ": " + self.tooltip
 
         if self.permanent_tooltip:
@@ -188,7 +188,7 @@ class View():
                 [sg.Text('Power Supply:', size=(15,1)), sg.Combo(key='power', values={}, size=(50 ,1))],
                 [sg.Text('Signal Generator:', size=(15,1)), sg.Combo(key='signal', values={}, size=(50 ,1))],
                 [sg.Text('Oscilloscope:', size=(15,1)), sg.Combo(key='osc', values={}, size=(50 ,1))],
-                [sg.Text('Sample No.', size=(15,1)), sg.Combo([1,2,3,4,5,6,7,8,9,10], default_value=1, key='SampleNumber')],
+                #[sg.Text('Sample No.', size=(15,1)), sg.Combo([1,2,3,4,5,6,7,8,9,10], default_value=1, key='SampleNumber')],
                 [sg.Text('Output directory:'), sg.InputText(), sg.FolderBrowse()],
                 # after clicking Browse button, the following error message shows up
                 # Qt: Untested Windows version 10.0 detected!
@@ -263,10 +263,71 @@ class View():
                 sg.popup_ok('Connect oscillator, power supply, and signal generator.', title= 'Check Instrument connection.', keep_on_top= True)
                 self.state = View.State.Idle
                 return
+            # when the sample no is 0, meaning the test is at the beginning, pop up window asking spec standard
+            if self.controller.getSampleNo() == 0:
+                rpm = sg.popup_get_text('Please enter RPM')
+            # popup window ask sample number
+            sample_num = self.popup_dropdownList("Choose sample number", keep_on_top=True)
             # change the "status" element to be the value of "sample number" element
-            print("Start testing sample number " + str(values['SampleNumber']) + "...")
-            self.controller.start(values['SampleNumber'], values['Browse'])
+            print("Start testing sample number " + str(sample_num) + "...")
+            self.controller.start(sample_num, values['Browse'])
 
+    def popup_dropdownList(self, message, title=None, button_color=None,
+                   background_color=None, icon=None, font=None, no_titlebar=False,
+                   grab_anywhere=False, keep_on_top=None, location=(None, None), relative_location=(None, None), image=None, modal=True):
+        """
+        Display Popup with dropdown list. Returns the chosen option or None if closed / cancelled
+        
+        :param message:          message displayed to user
+        :type message:           (str)
+        :param title:            Window title
+        :type title:             (str)
+        :param button_color:     Color of the button (text, background)
+        :type button_color:      (str, str) or str
+        :param background_color: background color of the entire window
+        :type background_color:  (str)
+        :param icon:             filename or base64 string to be used for the window's icon
+        :type icon:              bytes | str
+        :param font:             specifies the  font family, size, etc. Tuple or Single string format 'name size styles'. Styles: italic * roman bold normal underline overstrike
+        :type font:              (str or (str, int[, str]) or None)
+        :param no_titlebar:      If True no titlebar will be shown
+        :type no_titlebar:       (bool)
+        :param grab_anywhere:    If True can click and drag anywhere in the window to move the window
+        :type grab_anywhere:     (bool)
+        :param keep_on_top:      If True the window will remain above all current windows
+        :type keep_on_top:       (bool)
+        :param location:         (x,y) Location on screen to display the upper left corner of window
+        :type location:          (int, int)
+        :param relative_location: (x,y) location relative to the default location of the window, in pixels. Normally the window centers.  This location is relative to the location the window would be created. Note they can be negative.
+        :type relative_location: (int, int)
+        :param image:            Image to include at the top of the popup window
+        :type image:             (str) or (bytes)
+        :param modal:            If True then makes the popup will behave like a Modal window... all other windows are non-operational until this one is closed. Default = True
+        :type modal:             bool
+        :return:                 Integer chosen or None if window was closed or cancel button clicked
+        :rtype:                  int | None
+        """
+        if image is not None:
+            if isinstance(image, str):
+                layout = [[sg.Image(filename=image)]]
+            else:
+                layout = [[sg.Image(data=image)]]
+        else:
+            layout = [[]]
+        layout += [[sg.Text('Specify Sample No.', size=(15,1)), sg.Combo([1,2,3,4,5,6,7,8,9,10], default_value=1, key='SampleNumber')],
+                  [sg.Button('Ok', size=(6, 1), bind_return_key=True), sg.Button('Cancel', size=(6, 1))]]
+        window = sg.Window(title=title or message, layout=layout, icon=icon, auto_size_text=True, button_color=button_color, no_titlebar=no_titlebar,
+                    background_color=background_color, grab_anywhere=grab_anywhere, keep_on_top=keep_on_top, location=location, relative_location=relative_location, finalize=True, modal=modal, font=font)
+
+        button, values = window.read()
+        window.close()
+        del window
+        if button != 'Ok':
+            return None
+        else:
+            path = values['SampleNumber']
+            return path
+    
     def pause_button_clicked(self):
         """
         effective pause, stop power supply output

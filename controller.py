@@ -53,6 +53,9 @@ class Controller:
     
     def popOSCWiringNote(self):
         self.view.pop_ok("check signal generator wire connection: ch1 vcc, ch2 pwm, ch3 fg, ch4 curr")
+
+    def getSampleNo(self):
+        return self.sample_no
     
     def initialList(self):
         """
