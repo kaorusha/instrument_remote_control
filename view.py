@@ -184,12 +184,13 @@ class View():
     def __init__(self) -> None:
         sg.theme('Default 1')
         sg.set_options(element_padding=(0, 0))
+        # display test conditions and update user input values
+
         layout = [[sg.Text('Connected device:')],
-                [sg.Text('Power Supply:', size=(15,1)), sg.Combo(key='power', values={}, size=(50 ,1))],
-                [sg.Text('Signal Generator:', size=(15,1)), sg.Combo(key='signal', values={}, size=(50 ,1))],
-                [sg.Text('Oscilloscope:', size=(15,1)), sg.Combo(key='osc', values={}, size=(50 ,1))],
-                #[sg.Text('Sample No.', size=(15,1)), sg.Combo([1,2,3,4,5,6,7,8,9,10], default_value=1, key='SampleNumber')],
-                [sg.Text('Output directory:'), sg.InputText(), sg.FolderBrowse()],
+                [sg.Text('Power Supply:', size=(15,1)), sg.Combo(key='power', values={}, expand_x=True)],
+                [sg.Text('Signal Generator:', size=(15,1)), sg.Combo(key='signal', values={}, expand_x=True)],
+                [sg.Text('Oscilloscope:', size=(15,1)), sg.Combo(key='osc', values={}, expand_x=True)],
+                [sg.Text('Output directory:', size=(15,1)), sg.InputText(), sg.FolderBrowse()],
                 [sg.Submit('Start'), sg.Button('Pause'), sg.Button('Stop'), sg.Quit()],
                 [sg.Multiline(size=(None, 5), expand_y=True, key='Multiline', write_only=True, reroute_cprint=True, reroute_stdout=True)]
                 ]
@@ -258,7 +259,7 @@ class View():
             if self.controller.deviceReady(values['osc'], values['power'], values['signal']) == False:
                 sg.popup_ok('Connect oscillator, power supply, and signal generator.', title= 'Check Instrument connection.', keep_on_top= True)
                 self.state = View.State.Idle
-                return
+                #return
             # when the sample no is 0, meaning the test is at the beginning, pop up window asking spec standard
             if self.controller.getSampleNo() == 0:
                 print(self.askTestSpec())
@@ -324,24 +325,32 @@ class View():
             path = values['SampleNumber']
             return path
 
+    def custom_col(self, heading = 'heading', cols = None):
+        layout = [
+            [sg.Text(text = heading, justification='center', background_color = 'light gray', expand_x=True)],
+            [sg.Text(s, justification='center', background_color='light gray', size=(9,1)) for s in cols],
+            [sg.Input('0', justification='r', key=(heading, c)) for c in range(len(cols))]    
+        ]
+        return layout
+    
     def askTestSpec(self):
-        rows = ('RPM', 'Current (A)')
-        layout =  [[sg.Text(' '*18)]+[sg.Text(s, size=(11,1)) for s in ('Duty 0%', 'Duty 50%', 'Duty 100%')] ] + \
-          [[sg.Text(r, size=(8,1))] + [sg.Input('0', justification='r', key=(r,c)) for c in range(3)] for r in rows] + \
-          [[sg.Ok(size=(6, 1)), sg.Exit(size=(6, 1))]]
-        window = sg.Window('Enter Test Spec:', layout, default_element_size=(12,1), element_padding=(1,1), keep_on_top=True)
+        conditions = ('Duty 0%', 'Duty 50%', 'Duty 100%')
+        cols = ('RPM', 'Current (A)')
+        layout =  [[sg.Column(self.custom_col(c, cols)) for c in conditions],
+                   [sg.Ok(size=(6, 1)), sg.Exit(size=(6, 1))]]
+        window = sg.Window('Enter Test Spec:', layout, default_element_size=(10,1), element_padding=(1,1), keep_on_top=True)
         button, values = window.read()
         window.close()
         del window
         if button != 'Ok':
             return None
         else:
-            pwm_0 = values[(rows[0], 0)]
-            curr_0 = values[(rows[1], 0)]
-            pwm_50 = values[(rows[0], 1)]
-            curr_50 = values[(rows[1], 1)]
-            pwm_100 = values[(rows[0], 2)]
-            curr_100 = values[(rows[1], 2)]
+            pwm_0 = values[(conditions[0],0)]
+            curr_0 = values[(conditions[0],1)]
+            pwm_50 = values[(conditions[1],0)]
+            curr_50 = values[(conditions[1],1)]
+            pwm_100 = values[(conditions[2],0)]
+            curr_100 = values[(conditions[2],1)]
             return pwm_0, curr_0, pwm_50, curr_50, pwm_100, curr_100
 
     def pause_button_clicked(self):
