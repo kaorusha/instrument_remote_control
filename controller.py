@@ -51,9 +51,6 @@ class Controller:
                 res = job[1]
                 self.last_job = self.job_list.pop(0)
     
-    def popOSCWiringNote(self):
-        self.view.pop_ok("check signal generator wire connection: ch1 vcc, ch2 pwm, ch3 fg, ch4 curr")
-
     def getSampleNo(self):
         return self.sample_no
     
@@ -149,7 +146,7 @@ class Controller:
             self.view.window[type].update(values = inst.list_id)
             inst.update = False
             if type == 'osc':
-                self.popOSCWiringNote()
+                view.sg.popup_ok("Check signal generator wiring:\n ch1\t vcc,\n ch2\t pwm,\n ch3\t fg,\n ch4\t curr", keep_on_top=True)
             if len(inst.list_id) == 1:
                 self.view.window[type].update(value = inst.list_id[0])
 

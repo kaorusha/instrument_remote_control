@@ -190,10 +190,6 @@ class View():
                 [sg.Text('Oscilloscope:', size=(15,1)), sg.Combo(key='osc', values={}, size=(50 ,1))],
                 #[sg.Text('Sample No.', size=(15,1)), sg.Combo([1,2,3,4,5,6,7,8,9,10], default_value=1, key='SampleNumber')],
                 [sg.Text('Output directory:'), sg.InputText(), sg.FolderBrowse()],
-                # after clicking Browse button, the following error message shows up
-                # Qt: Untested Windows version 10.0 detected!
-                # log4cplus:ERROR No appenders could be found for logger (AdSyncNamespace).
-                # log4cplus:ERROR Please initialize the log4cplus system properly.
                 [sg.Submit('Start'), sg.Button('Pause'), sg.Button('Stop'), sg.Quit()],
                 [sg.Multiline(size=(None, 5), expand_y=True, key='Multiline', write_only=True, reroute_cprint=True, reroute_stdout=True)]
                 ]
@@ -265,7 +261,7 @@ class View():
                 return
             # when the sample no is 0, meaning the test is at the beginning, pop up window asking spec standard
             if self.controller.getSampleNo() == 0:
-                rpm = sg.popup_get_text('Please enter RPM')
+                print(self.askTestSpec())
             # popup window ask sample number
             sample_num = self.popup_dropdownList("Choose sample number", keep_on_top=True)
             # change the "status" element to be the value of "sample number" element
@@ -314,8 +310,8 @@ class View():
                 layout = [[sg.Image(data=image)]]
         else:
             layout = [[]]
-        layout += [[sg.Text('Specify Sample No.', size=(15,1)), sg.Combo([1,2,3,4,5,6,7,8,9,10], default_value=1, key='SampleNumber')],
-                  [sg.Button('Ok', size=(6, 1), bind_return_key=True), sg.Button('Cancel', size=(6, 1))]]
+        layout += [[sg.Text('Specify Sample No.', size=(15,1)), sg.Combo([1,2,3,4,5,6,7,8,9,10], default_value=self.controller.getSampleNo(), key='SampleNumber')],
+                  [sg.Ok(size=(6, 1)), sg.Cancel(size=(6, 1))]]
         window = sg.Window(title=title or message, layout=layout, icon=icon, auto_size_text=True, button_color=button_color, no_titlebar=no_titlebar,
                     background_color=background_color, grab_anywhere=grab_anywhere, keep_on_top=keep_on_top, location=location, relative_location=relative_location, finalize=True, modal=modal, font=font)
 
@@ -327,7 +323,27 @@ class View():
         else:
             path = values['SampleNumber']
             return path
-    
+
+    def askTestSpec(self):
+        rows = ('RPM', 'Current (A)')
+        layout =  [[sg.Text(' '*18)]+[sg.Text(s, size=(11,1)) for s in ('Duty 0%', 'Duty 50%', 'Duty 100%')] ] + \
+          [[sg.Text(r, size=(8,1))] + [sg.Input('0', justification='r', key=(r,c)) for c in range(3)] for r in rows] + \
+          [[sg.Ok(size=(6, 1)), sg.Exit(size=(6, 1))]]
+        window = sg.Window('Enter Test Spec:', layout, default_element_size=(12,1), element_padding=(1,1), keep_on_top=True)
+        button, values = window.read()
+        window.close()
+        del window
+        if button != 'Ok':
+            return None
+        else:
+            pwm_0 = values[(rows[0], 0)]
+            curr_0 = values[(rows[1], 0)]
+            pwm_50 = values[(rows[0], 1)]
+            curr_50 = values[(rows[1], 1)]
+            pwm_100 = values[(rows[0], 2)]
+            curr_100 = values[(rows[1], 2)]
+            return pwm_0, curr_0, pwm_50, curr_50, pwm_100, curr_100
+
     def pause_button_clicked(self):
         """
         effective pause, stop power supply output
@@ -368,11 +384,3 @@ class View():
         :return:
         """
         pass
-
-    def pop_ok(self, message):
-        """
-        Show a pop ok message
-        :param message:
-        :return:
-        """
-        sg.popup_ok(message, keep_on_top= True)
