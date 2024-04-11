@@ -19,7 +19,7 @@ class Controller:
         try:
             # prepare a priority queue to store the test processes
             self.sample_no = sample_no
-            self.new_file_name = dir + '/report' if dir else 'report'
+            self.new_file_name = dir
             self.initialList()
             self.start_time = time.process_time()
             
@@ -171,6 +171,9 @@ class App():
 
             if event == view.sg.WIN_CLOSED or event == 'Quit':
                 break
+
+            self._view.changeCollapsibleSection(event, self._view.sec1_key)
+            self._view.changeCollapsibleSection(event, self._view.sec2_key)
             self._view.fsm(event, values)
             if self._view.state == self._view.State.Testing:
                 self._controller.runTest()

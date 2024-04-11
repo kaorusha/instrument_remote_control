@@ -180,20 +180,46 @@ def open_gui_return_input(
     window.close()
     return parameters
 
+def Collapsible(layout, key, title='', arrows=(sg.SYMBOL_DOWN, sg.SYMBOL_UP), collapsed=False):
+    """
+    User Defined Element
+    A "collapsable section" element. Like a container element that can be collapsed and brought back
+    :param layout:Tuple[List[sg.Element]]: The layout for the section
+    :param key:Any: Key used to make this section visible / invisible
+    :param title:str: Title to show next to arrow
+    :param arrows:Tuple[str, str]: The strings to use to show the section is (Open, Closed).
+    :param collapsed:bool: If True, then the section begins in a collapsed state
+    :return:sg.Column: Column including the arrows, title and the layout that is pinned
+    """
+    return sg.Column([[sg.T((arrows[1] if collapsed else arrows[0]), enable_events=True, k=key+'-BUTTON-'),
+                       sg.T(title, enable_events=True, key=key+'-TITLE-')],
+                      [sg.pin(sg.Column(layout, key=key, visible=not collapsed, metadata=arrows))]], pad=(0,0))
+
 class View():
     def __init__(self) -> None:
         sg.theme('Default 1')
         sg.set_options(element_padding=(0, 0))
         # display test conditions and update user input values
-
-        layout = [[sg.Text('Connected device:')],
-                [sg.Text('Power Supply:', size=(15,1)), sg.Combo(key='power', values={}, expand_x=True)],
-                [sg.Text('Signal Generator:', size=(15,1)), sg.Combo(key='signal', values={}, expand_x=True)],
-                [sg.Text('Oscilloscope:', size=(15,1)), sg.Combo(key='osc', values={}, expand_x=True)],
-                [sg.Text('Output directory:', size=(15,1)), sg.InputText(), sg.FolderBrowse()],
+        self.sec1_key = '-SEC1_KEY-'
+        section1 = [
+            [sg.Text('Connected device:')],
+            [sg.Text('Power Supply:', size=(15,1)), sg.Combo(key='power', values={}, expand_x=True)],
+            [sg.Text('Signal Generator:', size=(15,1)), sg.Combo(key='signal', values={}, expand_x=True)],
+            [sg.Text('Oscilloscope:', size=(15,1)), sg.Combo(key='osc', values={}, expand_x=True)],
+            [sg.Text('Output Report:', size=(15,1)), sg.Input('report', key='-filename-', expand_x=True), sg.FileSaveAs(key='-saved as-')]
+        ]
+        conditions = ('Duty 0%', 'Duty 50%', 'Duty 100%')
+        cols = ('RPM', 'Current (A)')
+        self.sec2_key = '-SEC2_KEY-'
+        section2 =  [
+            [sg.Column(self.custom_col(c, cols, size=(10,1), pad=(1,1))) for c in conditions],
+        ]
+        layout = [
+                [Collapsible(section1, key=self.sec1_key, title='Change input instruments and output file directory', collapsed=True)],
+                [Collapsible(section2, key=self.sec2_key, title='Specify Spec', collapsed=True)],     
                 [sg.Submit('Start'), sg.Button('Pause'), sg.Button('Stop'), sg.Quit()],
-                [sg.Multiline(size=(None, 5), expand_y=True, key='Multiline', write_only=True, reroute_cprint=True, reroute_stdout=True)]
-                ]
+                [sg.Multiline(size=(None, 5), expand_y=True, key='Multiline', write_only=True, reroute_cprint=False, reroute_stdout=True)]
+        ]
 
         self.window = sg.Window('Fan assembly auto test', layout, auto_size_buttons=False, keep_on_top=True, grab_anywhere=True)
         
@@ -201,6 +227,11 @@ class View():
         self.controller = None
         # set finite state machine initial state
         self.state = View.State.Idle
+
+    def changeCollapsibleSection(self, event, section_key):
+        if event.startswith(section_key):
+            self.window[section_key].update(visible=not self.window[section_key].visible)
+            self.window[section_key+'-BUTTON-'].update(self.window[section_key].metadata[0] if self.window[section_key].visible else self.window[section_key].metadata[1])
 
     class State(Enum):
         Idle = 0
@@ -262,12 +293,16 @@ class View():
                 #return
             # when the sample no is 0, meaning the test is at the beginning, pop up window asking spec standard
             if self.controller.getSampleNo() == 0:
-                print(self.askTestSpec())
+                sg.popup_ok('Specify spec', keep_on_top=True)
+                # use the current file output directory and disable changing
+                self.window['-filename-'].update(disabled = True)
+                self.window['-saved as-'].update(disabled = True)
+                
             # popup window ask sample number
             sample_num = self.popup_dropdownList("Choose sample number", keep_on_top=True)
             # change the "status" element to be the value of "sample number" element
             print("Start testing sample number " + str(sample_num) + "...")
-            self.controller.start(sample_num, values['Browse'])
+            self.controller.start(sample_num, values['-filename-'])
 
     def popup_dropdownList(self, message, title=None, button_color=None,
                    background_color=None, icon=None, font=None, no_titlebar=False,
@@ -311,7 +346,7 @@ class View():
                 layout = [[sg.Image(data=image)]]
         else:
             layout = [[]]
-        layout += [[sg.Text('Specify Sample No.', size=(15,1)), sg.Combo([1,2,3,4,5,6,7,8,9,10], default_value=self.controller.getSampleNo(), key='SampleNumber')],
+        layout += [[sg.Text('Specify Sample No.', size=(15,1)), sg.Spin([10,9,8,7,6,5,4,3,2,1], initial_value=self.controller.getSampleNo(), key='SampleNumber', )],
                   [sg.Ok(size=(6, 1)), sg.Cancel(size=(6, 1))]]
         window = sg.Window(title=title or message, layout=layout, icon=icon, auto_size_text=True, button_color=button_color, no_titlebar=no_titlebar,
                     background_color=background_color, grab_anywhere=grab_anywhere, keep_on_top=keep_on_top, location=location, relative_location=relative_location, finalize=True, modal=modal, font=font)
@@ -325,33 +360,15 @@ class View():
             path = values['SampleNumber']
             return path
 
-    def custom_col(self, heading = 'heading', cols = None):
+    def custom_col(self, heading = 'heading', cols = None, size=(None, None), pad = (None, None)):
         layout = [
-            [sg.Text(text = heading, justification='center', background_color = 'light gray', expand_x=True)],
-            [sg.Text(s, justification='center', background_color='light gray', size=(9,1)) for s in cols],
-            [sg.Input('0', justification='r', key=(heading, c)) for c in range(len(cols))]    
+            [sg.Text(text = heading, justification='center', background_color = 'light gray', expand_x=True, pad=pad)],
+            [sg.Column(layout=[
+                [sg.Text(s, justification='center', background_color='light gray', expand_x=True, pad=pad)],
+                [sg.Input('0', justification='r', key=(heading, s), size=size, pad=pad)]
+            ], ) for s in cols]    
         ]
         return layout
-    
-    def askTestSpec(self):
-        conditions = ('Duty 0%', 'Duty 50%', 'Duty 100%')
-        cols = ('RPM', 'Current (A)')
-        layout =  [[sg.Column(self.custom_col(c, cols)) for c in conditions],
-                   [sg.Ok(size=(6, 1)), sg.Exit(size=(6, 1))]]
-        window = sg.Window('Enter Test Spec:', layout, default_element_size=(10,1), element_padding=(1,1), keep_on_top=True)
-        button, values = window.read()
-        window.close()
-        del window
-        if button != 'Ok':
-            return None
-        else:
-            pwm_0 = values[(conditions[0],0)]
-            curr_0 = values[(conditions[0],1)]
-            pwm_50 = values[(conditions[1],0)]
-            curr_50 = values[(conditions[1],1)]
-            pwm_100 = values[(conditions[2],0)]
-            curr_100 = values[(conditions[2],1)]
-            return pwm_0, curr_0, pwm_50, curr_50, pwm_100, curr_100
 
     def pause_button_clicked(self):
         """
