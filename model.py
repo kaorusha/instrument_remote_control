@@ -5,7 +5,10 @@
 
 # incompatible with TDS2k and TBS1k series (see tbs simple plot)
 
-import time # std module
+from ast import Tuple
+import time
+from typing import Any, List, Type
+import warnings # std module
 import pyvisa as visa # http://github.com/hgrecco/pyvisa
 import matplotlib.pyplot as plt # http://matplotlib.org/
 import numpy as np # http://www.numpy.org/
@@ -427,21 +430,90 @@ class Oscilloscope(Instrument):
         else:
             return openpyxl.load_workbook('風扇樣品檢驗報告(for RD).xlsx')
     
-    def measure_RPM_under_PWM(self, duty = 0, fg = 3, sample_no = 1, new_file_name = 'output', column_pwm = 'E', column_rpm = 'F'):
+    def measure_RPM_and_Curr(self, duty = 0, fg = 3, sample_no = 1, new_file_name = 'output', column_rpm=None, column_curr=None,
+                             column_curr_max=None):
         """
-        under pwm duty, measure actual pwm duty and corresponding RPM from calculation of FG signal frequency divided by FG quantity
+        under pwm duty, measure current and corresponding RPM from calculation of FG signal frequency divided by FG quantity 
+        :param column_rpm:          columns to fill in measured rpm value
+        :type column_rpm:           List[str] | Tuple[str]
+        :param column_curr:         columns to fill in measured current value
+        :type column_curr:          List[str] | Tuple[str]
+        :param column_curr_max      columns to fill in measured current max value
+        :type column_curr_max       List[str] | Tuple[str]
         """
-        pwm = float(self.queryMeasurement("PDUTY", self.Channel.pwm))
-        rpm = float(self.queryMeasurement("FREQUENCY", self.Channel.FG)) / fg * 60.0
+        curr = 'N/A'
+        rpm = 'N/A'
+        curr_max = 'N/A'
         wb = self.load_report(new_file_name)
         sheet = wb.active
         row = str(sample_no + 9)
-        # incase the cell has already written on previous step before resuming from pause
-        if (sheet[column_pwm + row].value == None):
-            sheet[column_pwm + row] = pwm
-        if (sheet[column_rpm + row].value == None):
-            sheet[column_rpm + row] = rpm
+        # measure rpm
+        if column_rpm is not None:
+            if type(column_rpm) not in (List, Tuple):
+                warnings.warn('Please specify columns in a list')
+            else:
+                rpm = float(self.queryMeasurement("FREQUENCY", self.Channel.FG)) / fg * 60.0
+                # incase the cell has already written on previous step before resuming from pause
+                for col in column_rpm:
+                    if (sheet[col + row].value == None):
+                        sheet[col + row] = rpm
+                
+        # measure current
+        if column_curr is not None:
+            if type(column_curr) not in (List, Tuple):
+                warnings.warn('Please specify columns in a list')
+            else:
+                curr = float(self.queryMeasurement(channel=self.Channel.current))
+                for col in column_curr:
+                    if (sheet[col + row].value == None):
+                        sheet[col + row] = curr        
+        
+        # measure max current
+        if column_curr_max is not None:
+            if type(column_curr_max) not in (List, Tuple):
+                warnings.warn('Please specify columns in a list')
+            else:
+                curr_max = float(self.queryMeasurement("MAXIMUM", self.Channel.current))
+                for col in column_curr_max:
+                    if (sheet[col + row].value == None):
+                        sheet[col + row] = curr_max
+            
         wb.save(new_file_name)
+        wb.close()
+
+    def check_PWM_and_FG(self, sample_no = 1, new_file_name = 'output', column_pwm = None, column_fg = None):
+        """
+        check measured value > 0 and put 'V' at specified columns
+        """
+        pwm = 'N/A'
+        fg = 'N/A'
+        wb = self.load_report(new_file_name)
+        sheet = wb.active
+        row = str(sample_no + 9)
+
+        # measure pwm
+        if column_pwm is not None:
+            if type(column_pwm) not in (List, Tuple):
+                warnings.warn('Please specify columns in a list')
+            else:
+                pwm = float(self.queryMeasurement("PDUTY", self.Channel.pwm))
+                # incase the cell has already written on previous step before resuming from pause
+                for col in column_pwm:
+                    if (sheet[col + row].value == None):
+                        sheet[col + row] = 'V' if pwm > 0 else 'FAIL'
+        # measure fg
+        if column_fg is not None:
+            if type(column_fg) not in (List, Tuple):
+                warnings.warn('Please specify columns in a list')
+            else:
+                fg = float(self.queryMeasurement("FREQUENCY", self.Channel.FG))
+                # incase the cell has already written on previous step before resuming from pause
+                for col in column_fg:
+                    if (sheet[col + row].value == None):
+                        sheet[col + row] = 'V' if fg > 0 else 'FAIL'
+            
+        wb.save(new_file_name)
+        wb.close()
 
 class PowerSupply(Instrument):
     def __init__(self):

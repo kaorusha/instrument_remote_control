@@ -48,6 +48,7 @@ class Controller:
         if len(self.job_list) > 0:
             job = self.job_list[0]
             if now - self.start_time > job[0]:
+                self.start_time = now
                 res = job[1]
                 self.last_job = self.job_list.pop(0)
     
@@ -56,7 +57,7 @@ class Controller:
     
     def initialList(self):
         """
-        test actions are store in list of tuple(int(trigger time in sec), action)
+        test actions are store in list of tuple(int(trigger time in sec after last step), action)
         steps:
         跳出提醒：ch1 vcc, ch2 pwm, ch3 fg, ch4 curr
         詢問spec 0% 50% 100%的RPM. CURR
@@ -76,31 +77,30 @@ class Controller:
             詢問是否做luck, 按確定後開始10s後記錄
             10s,記錄CURRENT(MAX) P欄
         6.  確認有PWM及FG訊號，記錄K&R欄打勾
-        * 0 s: reset power supply, signal generator
-        * 0 s: power supply voltage 12V, signal generator pwm 0
-        * 10 s: measure pwm / rpm, write at column E / F
-        * 10 s: set signal generator pwm 50
-        * 20 s: measure pwm / rpm, write at column G / H
-        * 20 s: set signal generator pwm 100
-        * 30 s: measure pwm / rpm, write at column I / J
-        * (to be determined test process after column K)
         * show success message
         """
         self.job_list.append((0, self.model.power.reset))
         self.job_list.append((0, self.model.signal.reset))
         self.job_list.append((0, self.model.power.setVoltage(12)))
         self.job_list.append((0, self.model.signal.setPWMOutput))
+        self.job_list.append((0, self.model.signal.setPWMDuty(100)))
+        self.job_list.append((0, self.model.power.setOutputOn))
+        self.job_list.append((10, self.model.osc.measure_RPM_and_Curr(100, 2, self.sample_no, self.new_file_name, ['H'], ['I','N'], ['M'])))
+        self.job_list.append((0, self.model.signal.setPWMDuty(50)))
+        self.job_list.append((0, self.model.power.setOutputOn))
+        self.job_list.append((10, self.model.osc.measure_RPM_and_Curr(50, 2, self.sample_no, self.new_file_name, ['F'], ['G'])))
         self.job_list.append((0, self.model.signal.setPWMDuty(0)))
-        self.job_list.append((1, self.model.power.setOutputOn))
-        self.job_list.append((10, self.model.osc.measure_RPM_under_PWM(0, 3, self.sample_no, self.new_file_name, 'E', 'F')))
-        self.job_list.append((10, self.model.signal.setPWMDuty(50)))
-        self.job_list.append((11, self.model.power.setOutputOn))
-        self.job_list.append((20, self.model.osc.measure_RPM_under_PWM(50, 3, self.sample_no, self.new_file_name, 'G', 'H')))
-        self.job_list.append((20, self.model.signal.setPWMDuty(100)))
-        self.job_list.append((21, self.model.power.setOutputOn))
-        self.job_list.append((30, self.model.osc.measure_RPM_under_PWM(100, 3, self.sample_no, self.new_file_name, 'I', 'J')))
-        self.job_list.append((30, self.model.power.setOutputOff))
-        self.job_list.append((30, self.view.show_success('Test completed.')))
+        self.job_list.append((0, self.model.power.setOutputOn))
+        self.job_list.append((10, self.model.osc.measure_RPM_and_Curr(0, 2, self.sample_no, self.new_file_name, ['D'], ['E'])))
+        self.job_list.append((0, self.model.power.setVoltage(7)))
+        self.job_list.append((0, self.model.signal.setPWMDuty(100)))
+        self.job_list.append((1, self.model.osc.check_PWM_and_FG(self.sample_no, self.new_file_name, column_fg=['L'])))
+        self.job_list.append((0, self.model.power.setOutputOff))
+        self.job_list.append((0, self.maxCurrentTestAfterPopup('Measure Max. Start up Current?', ['O'])))
+        self.job_list.append((0, self.maxCurrentTestAfterPopup('Measure Max. Lock Current?', ['P'])))
+        self.job_list.append((0, self.model.osc.check_PWM_and_FG(self.sample_no, self.new_file_name, ['K'], ['R'])))
+        self.job_list.append((0, self.model.power.setOutputOff))
+        self.job_list.append((0, self.view.show_success('Test completed.')))
 
     def resumeTest(self):
         """
@@ -149,6 +149,19 @@ class Controller:
                 view.sg.popup_ok("Check signal generator wiring:\n ch1\t vcc,\n ch2\t pwm,\n ch3\t fg,\n ch4\t curr", keep_on_top=True)
             if len(inst.list_id) == 1:
                 self.view.window[type].update(value = inst.list_id[0])
+
+    def maxCurrentTestAfterPopup(self, msg = 'msg', col=None):
+        window = view.sg.popup_yes_no(msg, keep_on_top=True)
+        button, values = window.read()
+        window.close()
+        del window
+        if button != 'Yes':
+            return None
+        else:
+            self.job_list.insert(0, (0, self.model.power.setVoltage(13.2)))
+            self.job_list.insert(1, (0, self.model.signal.setPWMDuty(100)))
+            self.job_list.insert(2, (0, self.model.power.setOutputOn))
+            self.job_list.insert(3, (10, self.model.osc.measure_RPM_and_Curr(100, 2, self.sample_no, self.new_file_name, column_curr_max=col)))    
 
 class App():
     def __init__(self) -> None:
