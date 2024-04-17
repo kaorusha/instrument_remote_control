@@ -218,7 +218,7 @@ class View():
                 [Collapsible(section1, key=self.sec1_key, title='Change input instruments and output file directory', collapsed=True)],
                 [Collapsible(section2, key=self.sec2_key, title='Specify Spec', collapsed=True)],     
                 [sg.Submit('Start'), sg.Button('Pause'), sg.Button('Stop'), sg.Quit()],
-                [sg.Multiline(size=(None, 5), expand_y=True, key='Multiline', write_only=True, reroute_cprint=False, reroute_stdout=True)]
+                [sg.Multiline(size=(None, 5), expand_y=True, key='Multiline', write_only=True, reroute_cprint=True, reroute_stdout=True, autoscroll=True)]
         ]
 
         self.window = sg.Window('Fan assembly auto test', layout, auto_size_buttons=False, keep_on_top=True, grab_anywhere=True)
@@ -290,7 +290,7 @@ class View():
             if self.controller.deviceReady(values['osc'], values['power'], values['signal']) == False:
                 sg.popup_ok('Connect oscillator, power supply, and signal generator.', title= 'Check Instrument connection.', keep_on_top= True)
                 self.state = View.State.Idle
-                #return
+                return
             # when the sample no is 0, meaning the test is at the beginning, pop up window asking spec standard
             if self.controller.getSampleNo() == 0:
                 sg.popup_ok('Specify spec', keep_on_top=True)
@@ -301,8 +301,8 @@ class View():
             # popup window ask sample number
             sample_num = self.popup_dropdownList("Choose sample number", keep_on_top=True)
             # change the "status" element to be the value of "sample number" element
-            print("Start testing sample number " + str(sample_num) + "...")
-            self.controller.start(sample_num, values['-filename-'])
+            self.show_success("Start testing sample number " + str(sample_num) + "...")
+            self.controller.start(sample_num, values['-filename-'] + '.xlsx')
 
     def popup_dropdownList(self, message, title=None, button_color=None,
                    background_color=None, icon=None, font=None, no_titlebar=False,
