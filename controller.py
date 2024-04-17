@@ -21,7 +21,7 @@ class Controller:
             self.sample_no = sample_no
             self.new_file_name = dir
             self.initialList()
-            self.start_time = time.process_time()
+            self.start_time = time.perf_counter()
             
         except ValueError as error:
             # show an error message
@@ -44,20 +44,24 @@ class Controller:
         """
         when the state is testing, execute job to update the communication orders periodically with devices
         """
-        now = time.process_time()
+        now = time.perf_counter()
         if len(self.job_list) > 0:
             job = self.job_list[0]
             if now - self.start_time > job[0]:
                 self.start_time = now
-                res = job[1]
+                print("doing task: "+ job[1].__qualname__)
                 self.last_job = self.job_list.pop(0)
+                if len(job) > 2:
+                    job[1](*job[2:])
+                else:
+                    job[1]()
     
     def getSampleNo(self):
         return self.sample_no
     
     def initialList(self):
         """
-        test actions are store in list of tuple(int(trigger time in sec after last step), action)
+        test actions are store in list of tuple(int(trigger time in sec after last step), action_function, action_parameters: list())
         steps:
         跳出提醒：ch1 vcc, ch2 pwm, ch3 fg, ch4 curr
         詢問spec 0% 50% 100%的RPM. CURR
@@ -81,32 +85,32 @@ class Controller:
         """
         self.job_list.append((0, self.model.power.reset))
         self.job_list.append((0, self.model.signal.reset))
-        self.job_list.append((0, self.model.power.setVoltage(12)))
+        self.job_list.append((0, self.model.power.setVoltage, 12))
         self.job_list.append((0, self.model.signal.setPWMOutput))
-        self.job_list.append((0, self.model.signal.setPWMDuty(100)))
+        self.job_list.append((0, self.model.signal.setPWMDuty, 100))
         self.job_list.append((0, self.model.power.setOutputOn))
-        self.job_list.append((10, self.model.osc.measure_RPM_and_Curr(100, 2, self.sample_no, self.new_file_name, ['H'], ['I','N'], ['M'])))
-        self.job_list.append((0, self.model.signal.setPWMDuty(50)))
+        self.job_list.append((10, self.model.osc.measure_RPM_and_Curr, 100, 2, self.sample_no, self.new_file_name, ['H'], ['I','N'], ['M']))
+        self.job_list.append((0, self.model.signal.setPWMDuty,50))
         self.job_list.append((0, self.model.power.setOutputOn))
-        self.job_list.append((10, self.model.osc.measure_RPM_and_Curr(50, 2, self.sample_no, self.new_file_name, ['F'], ['G'])))
-        self.job_list.append((0, self.model.signal.setPWMDuty(0)))
+        self.job_list.append((10, self.model.osc.measure_RPM_and_Curr, 50, 2, self.sample_no, self.new_file_name, ['F'], ['G']))
+        self.job_list.append((0, self.model.signal.setPWMDuty, 0))
         self.job_list.append((0, self.model.power.setOutputOn))
-        self.job_list.append((10, self.model.osc.measure_RPM_and_Curr(0, 2, self.sample_no, self.new_file_name, ['D'], ['E'])))
-        self.job_list.append((0, self.model.power.setVoltage(7)))
-        self.job_list.append((0, self.model.signal.setPWMDuty(100)))
-        self.job_list.append((1, self.model.osc.check_PWM_and_FG(self.sample_no, self.new_file_name, column_fg=['L'])))
+        self.job_list.append((10, self.model.osc.measure_RPM_and_Curr, 0, 2, self.sample_no, self.new_file_name, ['D'], ['E']))
+        self.job_list.append((0, self.model.power.setVoltage, 7))
+        self.job_list.append((0, self.model.signal.setPWMDuty, 100))
+        self.job_list.append((1, self.model.osc.check_PWM_and_FG, self.sample_no, self.new_file_name, None, ['L']))
         self.job_list.append((0, self.model.power.setOutputOff))
-        self.job_list.append((0, self.maxCurrentTestAfterPopup('Measure Max. Start up Current?', ['O'])))
-        self.job_list.append((0, self.maxCurrentTestAfterPopup('Measure Max. Lock Current?', ['P'])))
-        self.job_list.append((0, self.model.osc.check_PWM_and_FG(self.sample_no, self.new_file_name, ['K'], ['R'])))
+        self.job_list.append((0, self.maxCurrentTestAfterPopup, 'Measure Max. Start up Current?', ['O']))
+        self.job_list.append((0, self.maxCurrentTestAfterPopup, 'Measure Max. Lock Current?', ['P']))
+        self.job_list.append((0, self.model.osc.check_PWM_and_FG, self.sample_no, self.new_file_name, ['K'], ['R']))
         self.job_list.append((0, self.model.power.setOutputOff))
-        self.job_list.append((0, self.view.show_success('Test completed.')))
+        self.job_list.append((0, self.view.show_success,'Test completed.'))
 
     def resumeTest(self):
         """
         resume from pause
         """
-        self.start_time = time.process_time()
+        self.start_time = time.perf_counter()
         self.job_list.insert(0, self.last_job)
 
     def deviceReady(self, osc_id: str, power_id:str, signal_id:str):
@@ -151,17 +155,15 @@ class Controller:
                 self.view.window[type].update(value = inst.list_id[0])
 
     def maxCurrentTestAfterPopup(self, msg = 'msg', col=None):
-        window = view.sg.popup_yes_no(msg, keep_on_top=True)
-        button, values = window.read()
-        window.close()
-        del window
+        button = view.sg.popup_yes_no(msg, keep_on_top=True)
+
         if button != 'Yes':
             return None
         else:
-            self.job_list.insert(0, (0, self.model.power.setVoltage(13.2)))
-            self.job_list.insert(1, (0, self.model.signal.setPWMDuty(100)))
+            self.job_list.insert(0, (0, self.model.power.setVoltage, 13.2))
+            self.job_list.insert(1, (0, self.model.signal.setPWMDuty, 100))
             self.job_list.insert(2, (0, self.model.power.setOutputOn))
-            self.job_list.insert(3, (10, self.model.osc.measure_RPM_and_Curr(100, 2, self.sample_no, self.new_file_name, column_curr_max=col)))    
+            self.job_list.insert(3, (10, self.model.osc.measure_RPM_and_Curr, 100, 2, self.sample_no, self.new_file_name, None, None, col))    
 
 class App():
     def __init__(self) -> None:
@@ -177,8 +179,10 @@ class App():
         while (True):
             # --------- Read and update window --------
             event, values = self._view.window.read(timeout=1000)
-            if event != '__TIMEOUT__':
-                print(event, values)
+            if event != '__TIMEOUT__' and \
+               event != '-SEC1_KEY--BUTTON-' and event != '-SEC1_KEY--TITLE-' and \
+               event != '-SEC2_KEY--BUTTON-' and event != '-SEC2_KEY--TITLE-':
+                print(event)
             # --------- Display updates in window --------
             self._controller.selectDevices()
 
