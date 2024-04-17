@@ -39,7 +39,7 @@ class Instrument:
         """
         self.scope.write('*cls') # clear ESR
         print(self.scope.query('*idn?'))
-        input(msg)
+        print(msg)
 
     def reset(self):
         self.scope.write('*rst') # reset
@@ -104,8 +104,8 @@ class Model:
         # connected instrument on the GUI panel. 
         # It is possible to test multiple samples parallel by connecting multiple devices 
         # through TCP/IP, but the code need modification.
-        # info = self.rm.list_resources()
-        info = ['USB0::0x0699::0x0527::C033493::INSTR', 'USB0::0x1698::0x0837::001000005648::INSTR', 'USB0::0x0699::0x0358::C013019::INSTR']
+        info = self.rm.list_resources()
+        # info = ['USB0::0x0699::0x0527::C033493::INSTR', 'USB0::0x1698::0x0837::001000005648::INSTR', 'USB0::0x0699::0x0358::C013019::INSTR']
         # oscilloscope idn: TEKTRONIX,MSO46,C033493,CF:91.1CT FV:1.44.3.433
         # visa_address = 'USB0::0x0699::0x0527::C033493::INSTR'
         # power supply idn: CHROMA,62012P-80-60,03.30.1,05648
@@ -142,6 +142,8 @@ class Model:
         # delete disconnected instrument
         if (self.inst_dict):
             for old_address in self.inst_dict.keys():
+            # todo: fix RuntimeError: dictionary changed size during iteration
+            # after unplugging usb
                 if old_address not in info:
                     id = self.inst_dict[old_address].id
                     self.id_dict.pop(id)
@@ -248,8 +250,6 @@ class Oscilloscope(Instrument):
         super().printStartMsg("""
         ACTION:
         Connect probe to oscilloscope Channel 1 and the probe compensation signal.
-
-        Press Enter to continue...
         """)
 
     def autoset(self):
@@ -425,7 +425,7 @@ class Oscilloscope(Instrument):
         """
         open the current editing report, if not created yet, open the template as blank report"
         """
-        if os.path.exist(new_file_name):
+        if os.path.exists(new_file_name):
             return openpyxl.load_workbook(new_file_name)
         else:
             return openpyxl.load_workbook('風扇樣品檢驗報告(for RD).xlsx')
@@ -447,10 +447,11 @@ class Oscilloscope(Instrument):
         wb = self.load_report(new_file_name)
         sheet = wb.active
         row = str(sample_no + 9)
+        warn_msg = 'Please specify columns in a list, the result will not be saved'
         # measure rpm
         if column_rpm is not None:
-            if type(column_rpm) not in (List, Tuple):
-                warnings.warn('Please specify columns in a list')
+            if type(column_rpm) not in (list, Tuple):
+                warnings.warn(warn_msg)
             else:
                 rpm = float(self.queryMeasurement("FREQUENCY", self.Channel.FG)) / fg * 60.0
                 # incase the cell has already written on previous step before resuming from pause
@@ -460,8 +461,8 @@ class Oscilloscope(Instrument):
                 
         # measure current
         if column_curr is not None:
-            if type(column_curr) not in (List, Tuple):
-                warnings.warn('Please specify columns in a list')
+            if type(column_curr) not in (list, Tuple):
+                warnings.warn(warn_msg)
             else:
                 curr = float(self.queryMeasurement(channel=self.Channel.current))
                 for col in column_curr:
@@ -470,8 +471,8 @@ class Oscilloscope(Instrument):
         
         # measure max current
         if column_curr_max is not None:
-            if type(column_curr_max) not in (List, Tuple):
-                warnings.warn('Please specify columns in a list')
+            if type(column_curr_max) not in (list, Tuple):
+                warnings.warn(warn_msg)
             else:
                 curr_max = float(self.queryMeasurement("MAXIMUM", self.Channel.current))
                 for col in column_curr_max:
@@ -490,11 +491,12 @@ class Oscilloscope(Instrument):
         wb = self.load_report(new_file_name)
         sheet = wb.active
         row = str(sample_no + 9)
-
+        warn_msg = 'Please specify columns in a list, the result will not be saved'
+        
         # measure pwm
         if column_pwm is not None:
-            if type(column_pwm) not in (List, Tuple):
-                warnings.warn('Please specify columns in a list')
+            if type(column_pwm) not in (list, Tuple):
+                warnings.warn(warn_msg)
             else:
                 pwm = float(self.queryMeasurement("PDUTY", self.Channel.pwm))
                 # incase the cell has already written on previous step before resuming from pause
@@ -503,8 +505,8 @@ class Oscilloscope(Instrument):
                         sheet[col + row] = 'V' if pwm > 0 else 'FAIL'
         # measure fg
         if column_fg is not None:
-            if type(column_fg) not in (List, Tuple):
-                warnings.warn('Please specify columns in a list')
+            if type(column_fg) not in (list, Tuple):
+                warnings.warn(warn_msg)
             else:
                 fg = float(self.queryMeasurement("FREQUENCY", self.Channel.FG))
                 # incase the cell has already written on previous step before resuming from pause
@@ -524,9 +526,7 @@ class PowerSupply(Instrument):
         self.scope.query_termination = '\r\n'
         self.scope.write_termination = '\r\n'
         super().printStartMsg("""
-        ACTION:
         Power supply ready for remote control.
-        Press Enter to continue...
         """)
 
     def setVoltage(self, volt):
@@ -547,9 +547,7 @@ class SignalGenerator(Instrument):
         self.scope.write_termination = None
         self.scope.clear()
         super().printStartMsg("""
-        ACTION:
         Signal generator ready for remote control.
-        Press Enter to continue...
         """)
 
     def setPWMOutput(self):
