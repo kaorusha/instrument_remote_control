@@ -7,7 +7,6 @@
 
 from ast import Tuple
 import time
-from typing import Any, List, Type
 import warnings # std module
 import pyvisa as visa # http://github.com/hgrecco/pyvisa
 import matplotlib.pyplot as plt # http://matplotlib.org/
@@ -104,7 +103,11 @@ class Model:
         # connected instrument on the GUI panel. 
         # It is possible to test multiple samples parallel by connecting multiple devices 
         # through TCP/IP, but the code need modification.
-        info = self.rm.list_resources()
+        info = []
+        try:
+            info = self.rm.list_resources()
+        except:
+            print("No instrument found")
         # info = ['USB0::0x0699::0x0527::C033493::INSTR', 'USB0::0x1698::0x0837::001000005648::INSTR', 'USB0::0x0699::0x0358::C013019::INSTR']
         # oscilloscope idn: TEKTRONIX,MSO46,C033493,CF:91.1CT FV:1.44.3.433
         # visa_address = 'USB0::0x0699::0x0527::C033493::INSTR'
@@ -270,7 +273,10 @@ class Oscilloscope(Instrument):
         self.scope.write('wfmoutpre:byt_n 1') # 1 byte per sample
 
     # acq config
-    def acqConfig(self):       
+    def acqConfig(self):
+        '''
+        change the acquire:stopafter from default RUNSTOP to SINGLE/SEQ mode
+        '''       
         self.scope.write('acquire:state 0') # stop
         #self.scope.write('SELECT:CH1 ON')
         self.scope.write('acquire:stopafter SEQUENCE') # single
@@ -391,7 +397,7 @@ class Oscilloscope(Instrument):
         self.scope.write("MEASUREMENT:IMMED:SOURCE CH" + str(channel))
         res = self.scope.query("MEASUREMENT:IMMED:VALUE?")
         # log
-        # print("channel " + str(channel.value) + "(" + type + "): " + res) 
+        print("channel " + str(channel.value) + "(" + type + "): " + res) 
         return res
     
     # measureing fan speed in RPM through FG signal frequency
@@ -430,7 +436,7 @@ class Oscilloscope(Instrument):
         else:
             return openpyxl.load_workbook('風扇樣品檢驗報告(for RD).xlsx')
     
-    def measure_RPM_and_Curr(self, duty = 0, fg = 3, sample_no = 1, new_file_name = 'output', column_rpm=None, column_curr=None,
+    def measure_RPM_and_Curr(self, duty = 0.0, fg = 3, sample_no = 1, new_file_name = 'output', column_rpm=None, column_curr=None,
                              column_curr_max=None):
         """
         under pwm duty, measure current and corresponding RPM from calculation of FG signal frequency divided by FG quantity 
@@ -517,6 +523,90 @@ class Oscilloscope(Instrument):
         wb.save(new_file_name)
         wb.close()
 
+    def setScale(self, type: str = 'V', channel: Channel = Channel.current, scientific_notation: str = '2e-1'):
+        """
+        :param type: 'H' set horizontal scale for numbers of seconds per division
+                     'V' set vertical scale for numbers of voltage or ampere per division
+        """
+        if type == 'H':
+            self.scope.write('HORizontal:SCAle ' + scientific_notation)
+        if type == 'V':
+            self.scope.write('DISplay:WAVEView1:CH%d:VERTical:SCAle '%channel.value + scientific_notation)
+    
+    def setPosition(self, type: str = 'V', channel: Channel = Channel.current, position:float = -3.50):
+        """
+        Adjust the vertical position of the specific channel signal waveform
+        :param type: 'V' set vertical position for specified channel
+                     'H' set horizontal position 
+        :param position: for vertical 5.00 is the top most and -5.00 is the bottom
+                         for horizontal from 0 to ≈100 and is the position of the trigger point on the screen
+                         (0 = left edge, 100 = right edge)
+        """
+        if type == 'V':
+            self.scope.write('DISplay:WAVEView1:CH%d:VERTical:POSition %d'%(channel.value, position))
+        if type == 'H':
+            self.scope.write('HORIZONTAL:POSITION %d'%position)
+
+    def addMeasurement(self, num:int = 1, channel: Channel = Channel.current, type:str = 'MEAN'):
+        self.scope.write('MEASUrement:MEAS%d:TYPe %s'%(num, type))
+        self.scope.write('MEASUrement:MEAS%d:SOUrce CH%d'%(num, channel.value))
+    
+    def turnOn(self, channel: Channel):
+        self.scope.write(':DISPLAY:WAVEVIEW1:CH%d:STATE 1'%channel.value)
+
+    def setMeasurement(self):
+        self.turnOn(self.Channel.vcc)
+        self.turnOn(self.Channel.pwm)
+        self.turnOn(self.Channel.FG)
+        self.turnOn(self.Channel.current)
+        self.setScale('H', scientific_notation='1')
+        self.setScale('V', self.Channel.vcc, '5')
+        self.setScale('V', self.Channel.pwm, '5')
+        self.setScale('V', self.Channel.FG, '5')
+        self.setScale('V', self.Channel.current, '1')
+        self.setPosition('V', self.Channel.vcc, 1.0)
+        self.setPosition('V', self.Channel.pwm, 1.0)
+        self.setPosition('V', self.Channel.FG, -1.0)
+        self.setPosition('V', self.Channel.current, -3.5)
+        self.setPosition('H', position=20)
+        # add measurements
+        self.addMeasurement(1, self.Channel.vcc, 'TOP')
+        self.addMeasurement(2, self.Channel.vcc, 'MEAN')
+        self.addMeasurement(3, self.Channel.pwm, 'PDUTY')
+        self.addMeasurement(4, self.Channel.FG, 'FREQUENCY')
+        self.addMeasurement(5, self.Channel.current, 'MAXIMUM')
+        self.addMeasurement(6, self.Channel.current, 'MEAN')
+        self.addMeasurement(7, self.Channel.current, 'RMS')
+        self.addMeasurement(8, self.Channel.current, 'PK2PK')
+
+    def saveImageOnEvent(self, channel: Channel = Channel.current, level:float = 3.0):
+        self.scope.write('TRIGGER:A:MODE NORMAL')
+        self.scope.write('TRIGGER:A:LEVEL:CH%d '%channel.value + str(level))
+        self.scope.write('SAVEONEVENT:FILENAME \'c:/TEMP\'')
+        self.scope.write('SAVEONEVent:IMAGe:FILEFormat PNG') # default format
+        self.scope.write('ACTONEVent:MEASUrement:ACTION:SAVEIMAGe:STATE ON')
+        self.scope.query("*OPC?")
+
+    def readImage(self, file_name:str = 'max_current'):
+        #self.scope.query("*OPC?")  #Make sure the image has been saved before trying to read the file
+        
+        # Read file data over
+        self.scope.write('FILESYSTEM:READFILE \'c:/TEMP.PNG\'')
+        try:
+            data = self.scope.read_raw() # return byte data
+        except visa.VisaIOError as e:
+            print("There was a visa error with the following message: {0} ".format(repr(e)))
+            print("Oscilloscope Error Status Register is: "+str(self.scope.query("*ESR?")))
+            print(self.scope.query("ALLEV?"))
+
+        # Save file to local PC
+        fid = open(file_name + '.png', 'wb')
+        fid.write(data)
+        fid.close()
+
+        # delete the temporary image file of the Oscilloscope when this is done as well. 
+        self.scope.write('FILESystem:DELEte \'c:/TEMP.PNG\'')
+
 class PowerSupply(Instrument):
     def __init__(self):
         super().__init__()
@@ -531,6 +621,9 @@ class PowerSupply(Instrument):
 
     def setVoltage(self, volt):
         self.scope.write("SOUR:VOLT " + str(volt))
+
+    def setCurrent(self, cur):
+        self.scope.write("SOUR:CURR " + str(cur))
 
     def setOutputOn(self):
         self.scope.write("CONFIgure:OUTPut ON")
@@ -560,8 +653,12 @@ class SignalGenerator(Instrument):
     
     def setPWMDuty(self, duty = 5.0):
         if (duty > 99.25):
-            duty = 99.25
+            duty = 99.981
         if (duty < 1.0):
-            duty = 1.0
+            duty = 0.025
         self.scope.write("SOURce1:PULSe:DCYCle " + str(duty))
+        # offset 2.5V
         r = self.scope.query('*opc?') # sync
+
+    def setOutputOn(self):
+        self.scope.write("OUTPut1:STATe ON")
