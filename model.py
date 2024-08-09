@@ -329,6 +329,8 @@ class Oscilloscope(Instrument):
         f.close()
     
     def saveHardcopy(self, file_name):
+        # stop the window
+        self.scope.write('ACQUIRE:STATE STOP')
         # Save image on scope harddrive
         self.scope.write('SAVE:IMAGE \'c:/TEMP.PNG\'')
         self.scope.query("*OPC?")  #Make sure the image has been saved before trying to read the file
@@ -349,6 +351,7 @@ class Oscilloscope(Instrument):
 
         # delete the temporary image file of the Oscilloscope when this is done as well. 
         self.scope.write('FILESystem:DELEte \'c:/TEMP.PNG\'')
+        self.scope.write('ACQUIRE:STATE RUN')
 
     def saveWaveform(self, file_name):
         # Save wafeform in csv file
@@ -396,6 +399,8 @@ class Oscilloscope(Instrument):
         self.scope.write("MEASUREMENT:IMMED:TYPE " + type)
         self.scope.write("MEASUREMENT:IMMED:SOURCE CH" + str(channel))
         res = self.scope.query("MEASUREMENT:IMMED:VALUE?")
+        if res == '9.91E+37\n': # the oscilloscope zero used this value
+            res = '0'
         # log
         print("channel " + str(channel.value) + "(" + type + "): " + res) 
         return res
@@ -543,13 +548,14 @@ class Oscilloscope(Instrument):
                          (0 = left edge, 100 = right edge)
         """
         if type == 'V':
-            self.scope.write('DISplay:WAVEView1:CH%d:VERTical:POSition %d'%(channel.value, position))
+            self.scope.write('DISplay:WAVEView1:CH%d:VERTical:POSition %f'%(channel.value, position))
         if type == 'H':
-            self.scope.write('HORIZONTAL:POSITION %d'%position)
+            self.scope.write('HORIZONTAL:POSITION %f'%position)
 
     def addMeasurement(self, num:int = 1, channel: Channel = Channel.current, type:str = 'MEAN'):
         self.scope.write('MEASUrement:MEAS%d:TYPe %s'%(num, type))
         self.scope.write('MEASUrement:MEAS%d:SOUrce CH%d'%(num, channel.value))
+        self.scope.query("*OPC?")
     
     def turnOn(self, channel: Channel):
         self.scope.write(':DISPLAY:WAVEVIEW1:CH%d:STATE 1'%channel.value)
@@ -559,7 +565,10 @@ class Oscilloscope(Instrument):
         self.turnOn(self.Channel.pwm)
         self.turnOn(self.Channel.FG)
         self.turnOn(self.Channel.current)
-        self.setScale('H', scientific_notation='1')
+        self.scope.write('DISplay:WAVEView1:VIEWStyle OVERLAY')
+        self.scope.write('HORIZONTAL:MODE MANUAL')
+        self.scope.write('HORIZONTAL:MODE:SAMPLERATE 1e6')
+        self.setScale('H', scientific_notation='1e-3')
         self.setScale('V', self.Channel.vcc, '5')
         self.setScale('V', self.Channel.pwm, '5')
         self.setScale('V', self.Channel.FG, '5')
@@ -578,13 +587,12 @@ class Oscilloscope(Instrument):
         self.addMeasurement(6, self.Channel.current, 'MEAN')
         self.addMeasurement(7, self.Channel.current, 'RMS')
         self.addMeasurement(8, self.Channel.current, 'PK2PK')
+        self.scope.write('TRIGGER:A:MODE AUTO')
 
-    def saveImageOnEvent(self, channel: Channel = Channel.current, level:float = 3.0):
+    def setTrigger(self, channel: Channel = Channel.current, level:float = 2.0):
         self.scope.write('TRIGGER:A:MODE NORMAL')
+        self.scope.write('TRIGger:A:WINdow:SOUrce CH%d'%channel.value)
         self.scope.write('TRIGGER:A:LEVEL:CH%d '%channel.value + str(level))
-        self.scope.write('SAVEONEVENT:FILENAME \'c:/TEMP\'')
-        self.scope.write('SAVEONEVent:IMAGe:FILEFormat PNG') # default format
-        self.scope.write('ACTONEVent:MEASUrement:ACTION:SAVEIMAGe:STATE ON')
         self.scope.query("*OPC?")
 
     def readImage(self, file_name:str = 'max_current'):
@@ -645,11 +653,13 @@ class SignalGenerator(Instrument):
 
     def setPWMOutput(self):
         self.scope.write('SOURCE1:FUNCTION:SHAPE PULS')
-        self.scope.write('SOURce1:PWM:STATe ON')
+        #self.scope.write('SOURce1:PWM:STATe ON')
         self.scope.write('SOURce1:PWM:SOURce INTernal')
         self.scope.write('FREQuency 25E3')
+        self.scope.write('OUTPut1:IMPedance INFinity')
         self.scope.write('SOURce1:PWM:INTernal:FUNCtion SQUare')
         self.scope.write('SOURce1:VOLTage:LEVel:IMMediate:AMPLitude 5VPP')
+        self.scope.write('SOURce1:VOLTage:LEVel:IMMediate:OFFSet 2.5V')
     
     def setPWMDuty(self, duty = 5.0):
         if (duty > 99.25):

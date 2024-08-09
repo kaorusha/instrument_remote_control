@@ -67,6 +67,8 @@ class Controller:
         steps:
         跳出提醒：ch1 vcc, ch2 pwm, ch3 fg, ch4 curr
         詢問spec 0% 50% 100%的RPM. CURR
+        signal: 設定方波continueous offset 2.5v load high z
+        osc: 設定waveformview overlay horizontal 1ms/div SR 1MS/s 13.2V horizontal 1s/div
         1.  設定power voltage 12V, 5A, signal generator pwm 100
             generator ouput on channel 1
             10s後
@@ -91,6 +93,7 @@ class Controller:
         """
         self.job_list.append((0, self.model.power.reset))
         self.job_list.append((0, self.model.signal.reset))
+        self.job_list.append((0, self.model.osc.reset))
         self.job_list.append((0, self.model.osc.setMeasurement))
         self.job_list.append((0, self.model.power.setVoltage, 12))
         self.job_list.append((0, self.model.power.setCurrent, 5))
@@ -104,8 +107,8 @@ class Controller:
         self.job_list.append((0, self.model.signal.setOutputOn))
         self.job_list.append((1, self.model.osc.check_PWM_and_FG, self.sample_no, self.new_file_name, None, ['L']))
         self.job_list.append((0, self.model.power.setOutputOff))
-        self.job_list.append((0, self.maxCurrentTestAfterPopup, 'Measure Max. Start up Current?', ['O'], 5, True, 'max_start_up_cur'))
-        self.job_list.append((0, self.maxCurrentTestAfterPopup, 'Measure Max. Lock Current?', ['P'], 5))
+        self.job_list.append((0, self.maxCurrentTestAfterPopup, 'Measure Max. Start up Current?', ['O'], 7, True, 'max_start_up_cur'))
+        self.job_list.append((0, self.maxCurrentTestAfterPopup, 'Measure Max. Lock Current?', ['P'], 7, True, 'lock'))
         self.job_list.append((0, self.model.osc.check_PWM_and_FG, self.sample_no, self.new_file_name, ['K'], ['R']))
         self.job_list.append((0, self.model.power.setOutputOff))
         self.job_list.append((0, self.view.show_success,'Test completed.'))
@@ -178,21 +181,24 @@ class Controller:
             self.model.power.setVoltage(13.2)
             self.model.power.setCurrent(5)
             self.model.signal.setPWMDuty(100)
+            self.model.osc.setScale('H', self.model.osc.Channel.current, '1')
             self.model.osc.setScale('V', self.model.osc.Channel.current, '1')
+            self.model.osc.setPosition('V', self.model.osc.Channel.current, -4.5)
             self.model.osc.scope.write('acquire:state 0') # stop
+            #self.model.osc.setTrigger(self.model.osc.Channel.current, 2.0)
             self.model.osc.scope.write('acquire:stopafter SEQUENCE') # single
-            if hard_copy:
-                self.model.osc.saveImageOnEvent(self.model.osc.Channel.current, 3.0)
             self.model.osc.scope.write('acquire:state 1') # start
-            while(self.model.osc.scope.query('TRIGger:STATE?') != 'READY\n'):
-                time.sleep(1)
+            #while(self.model.osc.scope.query('TRIGger:STATE?') != 'READY\n'):
+            #    time.sleep(1)
             # ready for test
-            self.model.signal.setOutputOn()
-            self.job_list.insert(0, (0, self.model.power.setOutputOn))
-            self.job_list.insert(1, (after_sec, self.model.osc.measure_RPM_and_Curr, 100, 2, self.sample_no, self.new_file_name, None, None, col))
-            self.job_list.insert(2, (0, self.model.power.setOutputOff))
+            self.job_list.insert(0, (0, self.model.signal.setOutputOn))
+            self.job_list.insert(1, (2, self.model.power.setOutputOn))
+            self.job_list.insert(2, (after_sec, self.model.osc.measure_RPM_and_Curr, 100, 2, self.sample_no, self.new_file_name, None, None, col))
+            self.job_list.insert(3, (0, self.model.power.setOutputOff))
             if hard_copy:
-                self.job_list.insert(3, (0, self.model.osc.saveHardcopy, self.new_file_dir + hard_copy_file_name))
+                # make sure the sequence data has acquired
+                self.job_list.insert(4, (0, self.model.osc.scope.query, '*opc?'))
+                self.job_list.insert(5, (0, self.model.osc.saveHardcopy, self.new_file_dir + hard_copy_file_name))
 
 class App():
     def __init__(self) -> None:
