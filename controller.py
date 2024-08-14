@@ -82,18 +82,17 @@ class Controller:
         4.  設定power voltage 7V, 5A, signal generator pwm 100
             freq > 0
             確認有RPM，記錄L欄打勾
+            確認有PWM及FG訊號，記錄K&R欄打勾
             power off
             詢問是否做max startup, 按確定後開始10s後記錄
         5.  設定power voltage 13.2V, signal generator pwm100
             停下來
             詢問是否做luck, 按確定後開始10s後記錄
             10s,記錄CURRENT(MAX) P欄
-        6.  確認有PWM及FG訊號，記錄K&R欄打勾
         * show success message
         """
         self.job_list.append((0, self.model.power.reset))
         self.job_list.append((0, self.model.signal.reset))
-        self.job_list.append((0, self.model.osc.reset))
         self.job_list.append((0, self.model.osc.setMeasurement))
         self.job_list.append((0, self.model.power.setVoltage, 12))
         self.job_list.append((0, self.model.power.setCurrent, 5))
@@ -105,12 +104,11 @@ class Controller:
         self.job_list.append((0, self.model.power.setCurrent, 5))
         self.job_list.append((0, self.model.signal.setPWMDuty, 100))
         self.job_list.append((0, self.model.signal.setOutputOn))
-        self.job_list.append((1, self.model.osc.check_PWM_and_FG, self.sample_no, self.new_file_name, None, ['L']))
+        self.job_list.append((0, self.model.osc.scope.write, 'ACQUIRE:STATE RUN'))
+        self.job_list.append((2, self.model.osc.check_PWM_and_FG, self.sample_no, self.new_file_name, ['K'], ['L', 'R']))
         self.job_list.append((0, self.model.power.setOutputOff))
         self.job_list.append((0, self.maxCurrentTestAfterPopup, 'Measure Max. Start up Current?', ['O'], 7, True, 'max_start_up_cur'))
         self.job_list.append((0, self.maxCurrentTestAfterPopup, 'Measure Max. Lock Current?', ['P'], 7, True, 'lock'))
-        self.job_list.append((0, self.model.osc.check_PWM_and_FG, self.sample_no, self.new_file_name, ['K'], ['R']))
-        self.job_list.append((0, self.model.power.setOutputOff))
         self.job_list.append((0, self.view.show_success,'Test completed.'))
 
     def resumeTest(self):
@@ -168,6 +166,7 @@ class Controller:
         self.model.power.setOutputOn()
         if pwm == 0.0:
             self.model.osc.setScale()
+        self.model.osc.scope.write('ACQUIRE:STATE RUN')
         self.job_list.insert(0, (10, self.model.osc.measure_RPM_and_Curr, pwm, fg, self.sample_no, self.new_file_name, col_rpm, col_curr, col_curr_max))
         if hard_copy:
             self.job_list.insert(1, (0, self.model.osc.saveHardcopy, self.new_file_dir + hard_copy_file_name))
@@ -185,19 +184,19 @@ class Controller:
             self.model.osc.setScale('V', self.model.osc.Channel.current, '1')
             self.model.osc.setPosition('V', self.model.osc.Channel.current, -4.5)
             self.model.osc.scope.write('acquire:state 0') # stop
-            #self.model.osc.setTrigger(self.model.osc.Channel.current, 2.0)
+            self.model.osc.setTrigger(self.model.osc.Channel.current, 2.0)
             self.model.osc.scope.write('acquire:stopafter SEQUENCE') # single
             self.model.osc.scope.write('acquire:state 1') # start
-            #while(self.model.osc.scope.query('TRIGger:STATE?') != 'READY\n'):
-            #    time.sleep(1)
+            while(self.model.osc.scope.query('TRIGger:STATE?') != 'READY\n'):
+                time.sleep(1)
             # ready for test
             self.job_list.insert(0, (0, self.model.signal.setOutputOn))
-            self.job_list.insert(1, (2, self.model.power.setOutputOn))
-            self.job_list.insert(2, (after_sec, self.model.osc.measure_RPM_and_Curr, 100, 2, self.sample_no, self.new_file_name, None, None, col))
-            self.job_list.insert(3, (0, self.model.power.setOutputOff))
+            self.job_list.insert(1, (0, self.model.power.setOutputOn))
+            # make sure the sequence data has acquired
+            self.job_list.insert(2, (after_sec, self.model.osc.scope.query, '*opc?'))
+            self.job_list.insert(3, (0, self.model.osc.measure_RPM_and_Curr, 100, 2, self.sample_no, self.new_file_name, None, None, col))
+            self.job_list.insert(4, (0, self.model.power.setOutputOff))
             if hard_copy:
-                # make sure the sequence data has acquired
-                self.job_list.insert(4, (0, self.model.osc.scope.query, '*opc?'))
                 self.job_list.insert(5, (0, self.model.osc.saveHardcopy, self.new_file_dir + hard_copy_file_name))
 
 class App():

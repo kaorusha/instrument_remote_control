@@ -7,6 +7,7 @@
 
 from ast import Tuple
 import time
+from typing import Literal
 import warnings # std module
 import pyvisa as visa # http://github.com/hgrecco/pyvisa
 import matplotlib.pyplot as plt # http://matplotlib.org/
@@ -83,7 +84,7 @@ class Model:
         """
         dictionary
         * key: id
-        * value: vida address
+        * value: visa address
         """
         self.osc = Oscilloscope()
         self.power = PowerSupply()
@@ -243,6 +244,7 @@ class Model:
 class Oscilloscope(Instrument):
     def __init__(self):
         super().__init__()
+        self.measure = {}
     
     def setScope(self):
         self.scope.timeout = 10000 # ms
@@ -329,8 +331,6 @@ class Oscilloscope(Instrument):
         f.close()
     
     def saveHardcopy(self, file_name):
-        # stop the window
-        self.scope.write('ACQUIRE:STATE STOP')
         # Save image on scope harddrive
         self.scope.write('SAVE:IMAGE \'c:/TEMP.PNG\'')
         self.scope.query("*OPC?")  #Make sure the image has been saved before trying to read the file
@@ -351,7 +351,6 @@ class Oscilloscope(Instrument):
 
         # delete the temporary image file of the Oscilloscope when this is done as well. 
         self.scope.write('FILESystem:DELEte \'c:/TEMP.PNG\'')
-        self.scope.write('ACQUIRE:STATE RUN')
 
     def saveWaveform(self, file_name):
         # Save wafeform in csv file
@@ -395,10 +394,18 @@ class Oscilloscope(Instrument):
         max_start_up_current = 0.0
         min_current_on_steady = 0.0
 
-    def queryMeasurement(self, type = "MEAN", channel = Channel.vcc):
-        self.scope.write("MEASUREMENT:IMMED:TYPE " + type)
-        self.scope.write("MEASUREMENT:IMMED:SOURCE CH" + str(channel))
-        res = self.scope.query("MEASUREMENT:IMMED:VALUE?")
+    def queryMeasurement(self, type = "MEAN", channel = Channel.vcc, mode:Literal["immed", "badge"] = "immed"):
+        if mode == 'immed':
+            self.scope.write("MEASUREMENT:IMMED:TYPE " + type)
+            self.scope.write("MEASUREMENT:IMMED:SOURCE CH" + str(channel))
+            res = self.scope.query("MEASUREMENT:IMMED:VALUE?")
+            
+        if mode == 'badge':
+            meas_no = self.measure[(channel, type)]
+            # stop the window
+            self.scope.write('ACQUIRE:STATE STOP')
+            res = self.scope.query("MEASUrement:MEAS%d:RESUlts:CURRentacq:MEAN?"%meas_no)
+        
         if res == '9.91E+37\n': # the oscilloscope zero used this value
             res = '0'
         # log
@@ -410,8 +417,8 @@ class Oscilloscope(Instrument):
         result = self.Measure()
         result.start_up_volt = float(self.queryMeasurement())
         # MEASUrement:CH<x>:REFLevels:ABSolute:FALLHigh?
-        result.pwm = float(self.queryMeasurement("PDUTY", self.Channel.pwm)) # '9.91E+37\n'
-        result.rpm = float(self.queryMeasurement("FREQUENCY", self.Channel.FG)) # '9.91E+37\n'
+        result.pwm = float(self.queryMeasurement("PDUTY", self.Channel.pwm))
+        result.rpm = float(self.queryMeasurement("FREQUENCY", self.Channel.FG))
         
         result.max_current_on_steady = float(self.queryMeasurement("MAXIMUM", self.Channel.current))
         result.avg_op_current = float(self.queryMeasurement("MEAN", self.Channel.current))
@@ -464,7 +471,7 @@ class Oscilloscope(Instrument):
             if type(column_rpm) not in (list, Tuple):
                 warnings.warn(warn_msg)
             else:
-                rpm = float(self.queryMeasurement("FREQUENCY", self.Channel.FG)) / fg * 60.0
+                rpm = float(self.queryMeasurement("FREQUENCY", self.Channel.FG, 'badge')) / fg * 60.0
                 # incase the cell has already written on previous step before resuming from pause
                 for col in column_rpm:
                     if (sheet[col + row].value == None):
@@ -475,7 +482,7 @@ class Oscilloscope(Instrument):
             if type(column_curr) not in (list, Tuple):
                 warnings.warn(warn_msg)
             else:
-                curr = float(self.queryMeasurement(channel=self.Channel.current))
+                curr = float(self.queryMeasurement(channel=self.Channel.current, mode='badge'))
                 for col in column_curr:
                     if (sheet[col + row].value == None):
                         sheet[col + row] = curr        
@@ -485,7 +492,7 @@ class Oscilloscope(Instrument):
             if type(column_curr_max) not in (list, Tuple):
                 warnings.warn(warn_msg)
             else:
-                curr_max = float(self.queryMeasurement("MAXIMUM", self.Channel.current))
+                curr_max = float(self.queryMeasurement("MAXIMUM", self.Channel.current, 'badge'))
                 for col in column_curr_max:
                     if (sheet[col + row].value == None):
                         sheet[col + row] = curr_max
@@ -555,6 +562,7 @@ class Oscilloscope(Instrument):
     def addMeasurement(self, num:int = 1, channel: Channel = Channel.current, type:str = 'MEAN'):
         self.scope.write('MEASUrement:MEAS%d:TYPe %s'%(num, type))
         self.scope.write('MEASUrement:MEAS%d:SOUrce CH%d'%(num, channel.value))
+        self.measure[(channel, type)] = num
         self.scope.query("*OPC?")
     
     def turnOn(self, channel: Channel):
@@ -579,6 +587,7 @@ class Oscilloscope(Instrument):
         self.setPosition('V', self.Channel.current, -3.5)
         self.setPosition('H', position=20)
         # add measurements
+        self.scope.write('MEASUrement:DELETEALL')
         self.addMeasurement(1, self.Channel.vcc, 'TOP')
         self.addMeasurement(2, self.Channel.vcc, 'MEAN')
         self.addMeasurement(3, self.Channel.pwm, 'PDUTY')
@@ -591,8 +600,10 @@ class Oscilloscope(Instrument):
 
     def setTrigger(self, channel: Channel = Channel.current, level:float = 2.0):
         self.scope.write('TRIGGER:A:MODE NORMAL')
-        self.scope.write('TRIGger:A:WINdow:SOUrce CH%d'%channel.value)
+        self.scope.write('TRIGGER:A:TYPe EDGE')
+        self.scope.write('TRIGger:A:EDGE:SOUrce CH%d'%channel.value)
         self.scope.write('TRIGGER:A:LEVEL:CH%d '%channel.value + str(level))
+        self.scope.write('TRIGGER:A:EDGE:SLOpe RISe')
         self.scope.query("*OPC?")
 
     def readImage(self, file_name:str = 'max_current'):
