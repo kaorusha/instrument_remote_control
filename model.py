@@ -15,6 +15,7 @@ import numpy as np # http://www.numpy.org/
 from enum import Enum
 import openpyxl
 import os
+from math import floor, log
 
 class TypeEnum(Enum):
     osc = 0
@@ -430,7 +431,7 @@ class Oscilloscope(Instrument):
         result = self.acquireMeasure()
         wb = openpyxl.load_workbook('風扇樣品檢驗報告(for RD).xlsx')
         sheet = wb.active
-        row = str(sample_no + 9)
+        row = str(sample_no + 10)
         sheet['K' + row] = result.pwm
         sheet['L' + row] = result.start_up_volt
         sheet['M' + row] = result.max_current_on_steady
@@ -448,6 +449,17 @@ class Oscilloscope(Instrument):
         else:
             return openpyxl.load_workbook('風扇樣品檢驗報告(for RD).xlsx')
     
+    def metric_prefix(num, length = 5):
+        '''
+        formatting long number into numbers of thousands, with fixed total length
+        '''
+        prefix = int(floor(log(num, 1000)))
+        original_value = num/(1000**prefix)
+        int_len = len(str(int(original_value)))
+        round_len = length - 1 - int_len  # including point
+        new_value = np.round(original_value, round_len)
+        return new_value * (1000**prefix)
+    
     def measure_RPM_and_Curr(self, duty = 0.0, fg = 3, sample_no = 1, new_file_name = 'output', column_rpm=None, column_curr=None,
                              column_curr_max=None):
         """
@@ -464,14 +476,14 @@ class Oscilloscope(Instrument):
         curr_max = 'N/A'
         wb = self.load_report(new_file_name)
         sheet = wb.active
-        row = str(sample_no + 9)
+        row = str(sample_no + 10)
         warn_msg = 'Please specify columns in a list, the result will not be saved'
         # measure rpm
         if column_rpm is not None:
             if type(column_rpm) not in (list, Tuple):
                 warnings.warn(warn_msg)
-            else:
-                rpm = float(self.queryMeasurement("FREQUENCY", self.Channel.FG, 'badge')) / fg * 60.0
+            else: 
+                rpm = self.metric_prefix(float(self.queryMeasurement("FREQUENCY", self.Channel.FG, 'badge'))) / fg * 60.0
                 # incase the cell has already written on previous step before resuming from pause
                 for col in column_rpm:
                     if (sheet[col + row].value == None):
@@ -483,6 +495,8 @@ class Oscilloscope(Instrument):
                 warnings.warn(warn_msg)
             else:
                 curr = float(self.queryMeasurement(channel=self.Channel.current, mode='badge'))
+                if duty != 100:
+                    curr *= 1000 # the unit is mA
                 for col in column_curr:
                     if (sheet[col + row].value == None):
                         sheet[col + row] = curr        
@@ -508,7 +522,7 @@ class Oscilloscope(Instrument):
         fg = 'N/A'
         wb = self.load_report(new_file_name)
         sheet = wb.active
-        row = str(sample_no + 9)
+        row = str(sample_no + 10)
         warn_msg = 'Please specify columns in a list, the result will not be saved'
         
         # measure pwm
