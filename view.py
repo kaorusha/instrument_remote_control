@@ -346,7 +346,7 @@ class View():
                 layout = [[sg.Image(data=image)]]
         else:
             layout = [[]]
-        layout += [[sg.Text('Specify Sample No.', size=(15,1)), sg.Spin([10,9,8,7,6,5,4,3,2,1], initial_value=self.controller.getSampleNo(), key='SampleNumber', )],
+        layout += [[sg.Text(message, size=(15,1)), sg.Spin([10,9,8,7,6,5,4,3,2,1], initial_value=self.controller.getSampleNo(), key='Number', )],
                   [sg.Ok(size=(6, 1)), sg.Cancel(size=(6, 1))]]
         window = sg.Window(title=title or message, layout=layout, icon=icon, auto_size_text=True, button_color=button_color, no_titlebar=no_titlebar,
                     background_color=background_color, grab_anywhere=grab_anywhere, keep_on_top=keep_on_top, location=location, relative_location=relative_location, finalize=True, modal=modal, font=font)
@@ -357,7 +357,7 @@ class View():
         if button != 'Ok':
             return None
         else:
-            path = values['SampleNumber']
+            path = values['Number']
             return path
 
     def custom_col(self, heading = 'heading', cols = None, size=(None, None), pad = (None, None)):
