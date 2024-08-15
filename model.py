@@ -598,7 +598,7 @@ class Oscilloscope(Instrument):
         self.setPosition('V', self.Channel.vcc, 1.0)
         self.setPosition('V', self.Channel.pwm, 1.0)
         self.setPosition('V', self.Channel.FG, -1.0)
-        self.setPosition('V', self.Channel.current, -3.5)
+        self.setPosition('V', self.Channel.current, -4.5)
         self.setPosition('H', position=20)
         # add measurements
         self.scope.write('MEASUrement:DELETEALL')

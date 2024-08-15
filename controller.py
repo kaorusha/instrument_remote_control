@@ -182,7 +182,6 @@ class Controller:
             self.model.signal.setPWMDuty(100)
             self.model.osc.setScale('H', self.model.osc.Channel.current, '1')
             self.model.osc.setScale('V', self.model.osc.Channel.current, '1')
-            self.model.osc.setPosition('V', self.model.osc.Channel.current, -4.5)
             self.model.osc.scope.write('acquire:state 0') # stop
             self.model.osc.setTrigger(self.model.osc.Channel.current, 2.0)
             self.model.osc.scope.write('acquire:stopafter SEQUENCE') # single
