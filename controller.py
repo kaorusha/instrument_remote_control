@@ -93,7 +93,7 @@ class Controller:
         """
         self.job_list.append((0, self.model.power.reset))
         self.job_list.append((0, self.model.signal.reset))
-        self.job_list.append((0, self.model.osc.setMeasurement))
+        self.job_list.append((0, self.setupDisplay, 'Reset Measurement badge?'))
         self.job_list.append((0, self.model.power.setVoltage, 12))
         self.job_list.append((0, self.model.power.setCurrent, 5))
         self.job_list.append((0, self.model.signal.setPWMOutput))
@@ -109,6 +109,7 @@ class Controller:
         self.job_list.append((0, self.model.power.setOutputOff))
         self.job_list.append((0, self.maxCurrentTestAfterPopup, 'Measure Max. Start up Current?', ['O'], 7, True, 'max_start_up_cur'))
         self.job_list.append((0, self.maxCurrentTestAfterPopup, 'Measure Max. Lock Current?', ['P'], 7, True, 'lock'))
+        self.job_list.append((0, self.writeSpecFromGUI, ['D','E','F','G','U','I']))
         self.job_list.append((0, self.view.show_success,'Test completed.'))
 
     def resumeTest(self):
@@ -170,7 +171,35 @@ class Controller:
         self.job_list.insert(0, (10, self.model.osc.measure_RPM_and_Curr, pwm, fg, self.sample_no, self.new_file_name, col_rpm, col_curr, col_curr_max))
         if hard_copy:
             self.job_list.insert(1, (0, self.model.osc.saveHardcopy, self.new_file_dir + hard_copy_file_name))
-    
+
+    def writeSpecFromGUI(self, cols):
+        wb = self.model.osc.load_report(self.new_file_name)
+        sheet = wb.active
+        spec = self.view.getSpecValue()
+        row = 10
+        for s, col in zip(spec, cols):
+            if (sheet[col + row].value == None):
+                sheet[col + row] = s
+        wb.save(self.new_file_name)
+        wb.close()
+
+    def setupDisplay(self, msg = 'msg'):
+        self.model.osc.setMeasurement()
+        button = view.sg.popup_yes_no(msg, keep_on_top=True)
+        if button != 'Yes':
+            return None
+        else:
+            # add measurements
+            self.model.osc.scope.write('MEASUrement:DELETEALL')
+            self.model.osc.addMeasurement(1, self.model.osc.Channel.vcc, 'TOP')
+            self.model.osc.addMeasurement(2, self.model.osc.Channel.vcc, 'MEAN')
+            self.model.osc.addMeasurement(3, self.model.osc.Channel.pwm, 'PDUTY')
+            self.model.osc.addMeasurement(4, self.model.osc.Channel.FG, 'FREQUENCY')
+            self.model.osc.addMeasurement(5, self.model.osc.Channel.current, 'MAXIMUM')
+            self.model.osc.addMeasurement(6, self.model.osc.Channel.current, 'MEAN')
+            self.model.osc.addMeasurement(7, self.model.osc.Channel.current, 'RMS')
+            self.model.osc.addMeasurement(8, self.model.osc.Channel.current, 'PK2PK')
+
     def maxCurrentTestAfterPopup(self, msg = 'msg', col=None, after_sec=8, hard_copy = False, hard_copy_file_name:str = 'hard_copy'):
         button = view.sg.popup_yes_no(msg, keep_on_top=True)
 

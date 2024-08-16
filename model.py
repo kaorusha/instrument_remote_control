@@ -600,16 +600,6 @@ class Oscilloscope(Instrument):
         self.setPosition('V', self.Channel.FG, -1.0)
         self.setPosition('V', self.Channel.current, -4.5)
         self.setPosition('H', position=20)
-        # add measurements
-        self.scope.write('MEASUrement:DELETEALL')
-        self.addMeasurement(1, self.Channel.vcc, 'TOP')
-        self.addMeasurement(2, self.Channel.vcc, 'MEAN')
-        self.addMeasurement(3, self.Channel.pwm, 'PDUTY')
-        self.addMeasurement(4, self.Channel.FG, 'FREQUENCY')
-        self.addMeasurement(5, self.Channel.current, 'MAXIMUM')
-        self.addMeasurement(6, self.Channel.current, 'MEAN')
-        self.addMeasurement(7, self.Channel.current, 'RMS')
-        self.addMeasurement(8, self.Channel.current, 'PK2PK')
         self.scope.write('TRIGGER:A:MODE AUTO')
 
     def setTrigger(self, channel: Channel = Channel.current, level:float = 2.0):

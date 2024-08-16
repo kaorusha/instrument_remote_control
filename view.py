@@ -208,11 +208,11 @@ class View():
             [sg.Text('Oscilloscope:', size=(15,1)), sg.Combo(key='osc', values={}, expand_x=True)],
             [sg.Text('Output Report:', size=(15,1)), sg.Input('report', key='-filename-', expand_x=True), sg.FileSaveAs(key='-saved as-')]
         ]
-        conditions = ('Duty 0%', 'Duty 50%', 'Duty 100%')
-        cols = ('RPM', 'Current (A)')
+        self.conditions = ('Duty 0%', 'Duty 50%', 'Duty 100%')
+        self.cols = ('RPM', 'Current (A)')
         self.sec2_key = '-SEC2_KEY-'
         section2 =  [
-            [sg.Column(self.custom_col(c, cols, size=(10,1), pad=(1,1))) for c in conditions],
+            [sg.Column(self.custom_col(c, self.cols, size=(10,1), pad=(1,1))) for c in self.conditions],
         ]
         layout = [
                 [Collapsible(section1, key=self.sec1_key, title='Change input instruments and output file directory', collapsed=True)],
@@ -227,6 +227,14 @@ class View():
         self.controller = None
         # set finite state machine initial state
         self.state = View.State.Idle
+
+    def getSpecValue(self):
+        event, values = self.window.read()
+        spec = []
+        for con in self.conditions:
+            for col in self.cols:
+                spec.append(values[(con, col)])
+        return spec
 
     def changeCollapsibleSection(self, event, section_key):
         if event.startswith(section_key):
