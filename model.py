@@ -495,8 +495,6 @@ class Oscilloscope(Instrument):
                 warnings.warn(warn_msg)
             else:
                 curr = float(self.queryMeasurement(channel=self.Channel.current, mode='badge'))
-                if duty != 100:
-                    curr *= 1000 # the unit is mA
                 for col in column_curr:
                     if (sheet[col + row].value == None):
                         sheet[col + row] = curr        
