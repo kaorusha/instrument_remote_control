@@ -196,7 +196,17 @@ def Collapsible(layout, key, title='', arrows=(sg.SYMBOL_DOWN, sg.SYMBOL_UP), co
                       [sg.pin(sg.Column(layout, key=key, visible=not collapsed, metadata=arrows))]], pad=(0,0))
 
 class View():
-    def __init__(self) -> None:
+    def __init__(self, cprint:bool = False, stdout:bool = False) -> None:
+        '''
+        initial layout of GUI
+        
+        Parameters
+        ----------
+        cprint : bool
+            reroute cprint to GUI
+        stdout : bool
+            reroute stdout to GUI, default False, for ease of log checking when debugging.
+        '''
         sg.theme('Default 1')
         sg.set_options(element_padding=(0, 0))
         # display test conditions and update user input values
@@ -218,7 +228,7 @@ class View():
                 [Collapsible(section1, key=self.sec1_key, title='Change input instruments and output file directory', collapsed=True)],
                 [Collapsible(section2, key=self.sec2_key, title='Specify Spec', collapsed=True)],     
                 [sg.Submit('Start'), sg.Button('Pause'), sg.Button('Stop'), sg.Quit()],
-                [sg.Multiline(size=(None, 5), expand_y=True, key='Multiline', write_only=True, reroute_cprint=True, reroute_stdout=True, autoscroll=True)]
+                [sg.Multiline(size=(None, 5), expand_y=True, key='Multiline', write_only=True, reroute_cprint=cprint, reroute_stdout=stdout, autoscroll=True)]
         ]
 
         self.window = sg.Window('Fan assembly auto test', layout, auto_size_buttons=False, keep_on_top=True, grab_anywhere=True)
@@ -295,10 +305,6 @@ class View():
         :return:
         """
         if self.controller:
-            if self.controller.deviceReady(values['osc'], values['power'], values['signal']) == False:
-                sg.popup_ok('Connect oscillator, power supply, and signal generator.', title= 'Check Instrument connection.', keep_on_top= True)
-                self.state = View.State.Idle
-                return
             # when the sample no is 0, meaning the test is at the beginning, pop up window asking spec standard
             if self.controller.getSampleNo() == 0:
                 sg.popup_ok('Specify spec', keep_on_top=True)
@@ -307,45 +313,71 @@ class View():
                 self.window['-saved as-'].update(disabled = True)
                 
             # popup window ask sample number
-            sample_num = self.popup_dropdownList("Choose sample number", keep_on_top=True)
+            key1 = 'Number'
+            dropdown_list_layout = sg.Spin([10,9,8,7,6,5,4,3,2,1], initial_value=self.controller.getSampleNo(), key=key1)
+            sample_num = self.popup_input("Choose sample number", keep_on_top=True, content_layout=dropdown_list_layout, key=key1)
+            if sample_num == 1:
+                # choose a oscillator display scale
+                radio_text = [scale.getName() for scale in self.controller.scale_list]
+                radio_keys = range(len(radio_text))
+                radio_layout = [[sg.Radio(text, group_id=1, key=key)] for text, key in zip(radio_text, radio_keys)]
+                res = self.popup_input('choose current scale', content_layout=radio_layout, keep_on_top=True)
+                for key, value in res.items():
+                    if value == True:
+                        self.controller.scale_no = key
+                        break
+            if self.controller.deviceReady(values['osc'], values['power'], values['signal']) == False:
+                sg.popup_ok('Connect oscillator, power supply, and signal generator.', title= 'Check Instrument connection.', keep_on_top= True)
+                self.state = View.State.Idle
+                return
             # change the "status" element to be the value of "sample number" element
             self.show_success("Start testing sample number " + str(sample_num) + "...")
             self.controller.start(sample_num, values['-filename-'] + '.xlsx')
-
-    def popup_dropdownList(self, message, title=None, button_color=None,
+    
+    def popup_input(self, message, title=None, button_color=None, content_layout=None, key=None,
                    background_color=None, icon=None, font=None, no_titlebar=False,
                    grab_anywhere=False, keep_on_top=None, location=(None, None), relative_location=(None, None), image=None, modal=True):
         """
-        Display Popup with dropdown list. Returns the chosen option or None if closed / cancelled
+        Display Popup with given layout. Returns the input or None if closed / cancelled
         
-        :param message:          message displayed to user
-        :type message:           (str)
-        :param title:            Window title
-        :type title:             (str)
-        :param button_color:     Color of the button (text, background)
-        :type button_color:      (str, str) or str
-        :param background_color: background color of the entire window
-        :type background_color:  (str)
-        :param icon:             filename or base64 string to be used for the window's icon
-        :type icon:              bytes | str
-        :param font:             specifies the  font family, size, etc. Tuple or Single string format 'name size styles'. Styles: italic * roman bold normal underline overstrike
-        :type font:              (str or (str, int[, str]) or None)
-        :param no_titlebar:      If True no titlebar will be shown
-        :type no_titlebar:       (bool)
-        :param grab_anywhere:    If True can click and drag anywhere in the window to move the window
-        :type grab_anywhere:     (bool)
-        :param keep_on_top:      If True the window will remain above all current windows
-        :type keep_on_top:       (bool)
-        :param location:         (x,y) Location on screen to display the upper left corner of window
-        :type location:          (int, int)
-        :param relative_location: (x,y) location relative to the default location of the window, in pixels. Normally the window centers.  This location is relative to the location the window would be created. Note they can be negative.
-        :type relative_location: (int, int)
-        :param image:            Image to include at the top of the popup window
-        :type image:             (str) or (bytes)
-        :param modal:            If True then makes the popup will behave like a Modal window... all other windows are non-operational until this one is closed. Default = True
-        :type modal:             bool
-        :return:                 Integer chosen or None if window was closed or cancel button clicked
-        :rtype:                  int | None
+        Parameters
+        ----------
+        message : str
+            message displayed to user
+        title : str
+            Window title
+        button_color : (str, str) or str
+            Color of the button (text, background)
+        content_layout : list
+            layout for popup windows
+        key : str, optional
+            the specified button key for outputting value, of none, returns all value 
+        background_color : str
+            background color of the entire window
+        icon : bytes | str
+            filename or base64 string to be used for the window's icon
+        font : (str or (str, int[, str]) or None)
+            specifies the  font family, size, etc. Tuple or Single string format 'name size styles'. Styles: italic * roman bold normal underline overstrike
+        no_titlebar : bool
+            If True no titlebar will be shown
+        grab_anywhere : bool
+            If True can click and drag anywhere in the window to move the window
+        keep_on_top : bool
+            If True the window will remain above all current windows
+        location : (int, int)
+            (x,y) Location on screen to display the upper left corner of window
+        relative_location : (int, int)
+            (x,y) location relative to the default location of the window, in pixels. Normally the window centers.  This location is relative to the location the window would be created. Note they can be negative.
+        image : (str) or (bytes)
+            Image to include at the top of the popup window
+        modal : bool
+            If True then makes the popup will behave like a Modal window... all other windows are non-operational until this one is closed. Default = True
+
+        Returns
+        -------             
+        int | None
+            value of specified key or None if window was closed or cancel button clicked
+                       
         """
         if image is not None:
             if isinstance(image, str):
@@ -354,8 +386,8 @@ class View():
                 layout = [[sg.Image(data=image)]]
         else:
             layout = [[]]
-        layout += [[sg.Text(message, size=(15,1)), sg.Spin([10,9,8,7,6,5,4,3,2,1], initial_value=self.controller.getSampleNo(), key='Number', )],
-                  [sg.Ok(size=(6, 1)), sg.Cancel(size=(6, 1))]]
+        layout += [[sg.Text(message, size=(15,1)), content_layout],
+                  [sg.Ok(size=(6, 1))]]
         window = sg.Window(title=title or message, layout=layout, icon=icon, auto_size_text=True, button_color=button_color, no_titlebar=no_titlebar,
                     background_color=background_color, grab_anywhere=grab_anywhere, keep_on_top=keep_on_top, location=location, relative_location=relative_location, finalize=True, modal=modal, font=font)
 
@@ -365,8 +397,11 @@ class View():
         if button != 'Ok':
             return None
         else:
-            path = values['Number']
-            return path
+            if key != None:
+                path = values[key]
+                return path
+            else:
+                return values
 
     def custom_col(self, heading = 'heading', cols = None, size=(None, None), pad = (None, None)):
         layout = [

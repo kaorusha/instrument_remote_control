@@ -73,7 +73,12 @@ class Model:
             self.type = num
             self.id = id
 
-    def __init__(self) -> None:
+    def __init__(self, dummy:bool = False) -> None:
+        '''
+        Parameters
+        ----------
+        dummy : for testing, without device connected
+        '''
         self.rm = visa.ResourceManager()
         self.inst_dict = dict()
         """
@@ -90,6 +95,7 @@ class Model:
         self.osc = Oscilloscope()
         self.power = PowerSupply()
         self.signal = SignalGenerator()
+        self.dummy = dummy
 
     def listDevices(self):
         """Run to map different devices with their address and names.
@@ -110,7 +116,8 @@ class Model:
             info = self.rm.list_resources()
         except:
             print("No instrument found")
-        # info = ['USB0::0x0699::0x0527::C033493::INSTR', 'USB0::0x1698::0x0837::001000005648::INSTR', 'USB0::0x0699::0x0358::C013019::INSTR']
+        if self.dummy:
+            info = ['USB0::0x0699::0x0527::C033493::INSTR', 'USB0::0x1698::0x0837::001000005648::INSTR', 'USB0::0x0699::0x0358::C013019::INSTR']
         # oscilloscope idn: TEKTRONIX,MSO46,C033493,CF:91.1CT FV:1.44.3.433
         # visa_address = 'USB0::0x0699::0x0527::C033493::INSTR'
         # power supply idn: CHROMA,62012P-80-60,03.30.1,05648
@@ -395,14 +402,14 @@ class Oscilloscope(Instrument):
         max_start_up_current = 0.0
         min_current_on_steady = 0.0
 
-    def queryMeasurement(self, type = "MEAN", channel = Channel.vcc, mode:Literal["immed", "badge"] = "immed"):
+    def queryMeasurement(self, type = "MEAN", channel:Channel = Channel.vcc, mode:Literal["immed", "badge"] = "immed"):
         if mode == 'immed':
             self.scope.write("MEASUREMENT:IMMED:TYPE " + type)
             self.scope.write("MEASUREMENT:IMMED:SOURCE CH" + str(channel))
             res = self.scope.query("MEASUREMENT:IMMED:VALUE?")
             
         if mode == 'badge':
-            meas_no = self.measure[(channel, type)]
+            meas_no = self.measure.get((channel, type))
             # stop the window
             self.scope.write('ACQUIRE:STATE STOP')
             res = self.scope.query("MEASUrement:MEAS%d:RESUlts:CURRentacq:MEAN?"%meas_no)
@@ -449,15 +456,18 @@ class Oscilloscope(Instrument):
         else:
             return openpyxl.load_workbook('風扇樣品檢驗報告(for RD).xlsx')
     
-    def metric_prefix(num, length = 5):
+    def metric_prefix(self, num: float, length:int = 5):
         '''
         formatting long number into numbers of thousands, with fixed total length
         '''
+        if num < 1000.0 : # prevent math domain error
+            return num
         prefix = int(floor(log(num, 1000)))
         original_value = num/(1000**prefix)
         int_len = len(str(int(original_value)))
         round_len = length - 1 - int_len  # including point
         new_value = np.round(original_value, round_len)
+        print('metric_prefix converting %f to %f'%(num, new_value))
         return new_value * (1000**prefix)
     
     def measure_RPM_and_Curr(self, duty = 0.0, fg = 3, sample_no = 1, new_file_name = 'output', column_rpm=None, column_curr=None,
@@ -571,11 +581,26 @@ class Oscilloscope(Instrument):
         if type == 'H':
             self.scope.write('HORIZONTAL:POSITION %f'%position)
 
-    def addMeasurement(self, num:int = 1, channel: Channel = Channel.current, type:str = 'MEAN'):
-        self.scope.write('MEASUrement:MEAS%d:TYPe %s'%(num, type))
-        self.scope.write('MEASUrement:MEAS%d:SOUrce CH%d'%(num, channel.value))
-        self.measure[(channel, type)] = num
-        self.scope.query("*OPC?")
+    def addMeasurement(self, num:int = 1, channel: Channel = Channel.current, type:str = 'MEAN', reset:bool = False):
+        '''
+        Add measurement probe into a dictionary with responding number
+
+        Parameters
+        ----------
+        num : int
+            the index number of measurement type
+        channel : Channel
+            the index number of oscilloscope input channel
+        type : str
+            measurement type, check oscilloscope manual
+        reset : bool
+            if true, delete the current badge from oscilloscope and add new measurement
+        '''
+        if reset:
+            self.scope.write('MEASUrement:MEAS%d:TYPe %s'%(num, type))
+            self.scope.write('MEASUrement:MEAS%d:SOUrce CH%d'%(num, channel.value))
+            self.scope.query("*OPC?")
+        self.measure[(channel, type)] = num    
     
     def turnOn(self, channel: Channel):
         self.scope.write(':DISPLAY:WAVEVIEW1:CH%d:STATE 1'%channel.value)

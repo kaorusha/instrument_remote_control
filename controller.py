@@ -1,6 +1,7 @@
 import model
 import view
 import time
+import argparse
 
 class Controller:
     def __init__(self, model:model.Model, view:view.View) -> None:
@@ -12,6 +13,12 @@ class Controller:
         self.new_file_dir = ''
         self.start_time = 0
         self.last_job = None
+        self.scale_list = [ScaleSetting('2e-1', '1', '1', '7', '13.2', '1', '1', '1'),
+                           ScaleSetting('2e-1', '1', '2', '7', '13.2', '2', '2', '2'),
+                           ScaleSetting('2e-1', '1', '5', '7', '13.2', '5', '5', '5'),
+                           ScaleSetting('2e-1', '1', '5', '9', '13.2', '5', '5', '5'),
+                           ScaleSetting('2e-1', '1', '5', '10.8', '13.2', '5', '5', '5')]
+        self.scale_no = 0
 
     def start(self, sample_no:int, dir:str):
         """
@@ -109,7 +116,7 @@ class Controller:
         self.job_list.append((0, self.model.power.setOutputOff))
         self.job_list.append((0, self.maxCurrentTestAfterPopup, 'Measure Max. Start up Current?', ['O'], 7, True, 'max_start_up_cur'))
         self.job_list.append((0, self.maxCurrentTestAfterPopup, 'Measure Max. Lock Current?', ['P'], 7, True, 'lock'))
-        self.job_list.append((0, self.writeSpecFromGUI, ['D','E','F','G','U','I']))
+        self.job_list.append((0, self.writeSpecFromGUI, ['D','E','F','G','H','I']))
         self.job_list.append((0, self.view.show_success,'Test completed.'))
 
     def resumeTest(self):
@@ -176,7 +183,7 @@ class Controller:
         wb = self.model.osc.load_report(self.new_file_name)
         sheet = wb.active
         spec = self.view.getSpecValue()
-        row = 10
+        row = '10'
         for s, col in zip(spec, cols):
             if (sheet[col + row].value == None):
                 sheet[col + row] = s
@@ -185,20 +192,18 @@ class Controller:
 
     def setupDisplay(self, msg = 'msg'):
         self.model.osc.setMeasurement()
-        button = view.sg.popup_yes_no(msg, keep_on_top=True)
-        if button != 'Yes':
-            return None
-        else:
-            # add measurements
+        res = True if view.sg.popup_yes_no(msg, keep_on_top=True) == 'Yes' else False
+        # add measurements
+        if res:
             self.model.osc.scope.write('MEASUrement:DELETEALL')
-            self.model.osc.addMeasurement(1, self.model.osc.Channel.vcc, 'TOP')
-            self.model.osc.addMeasurement(2, self.model.osc.Channel.vcc, 'MEAN')
-            self.model.osc.addMeasurement(3, self.model.osc.Channel.pwm, 'PDUTY')
-            self.model.osc.addMeasurement(4, self.model.osc.Channel.FG, 'FREQUENCY')
-            self.model.osc.addMeasurement(5, self.model.osc.Channel.current, 'MAXIMUM')
-            self.model.osc.addMeasurement(6, self.model.osc.Channel.current, 'MEAN')
-            self.model.osc.addMeasurement(7, self.model.osc.Channel.current, 'RMS')
-            self.model.osc.addMeasurement(8, self.model.osc.Channel.current, 'PK2PK')
+        self.model.osc.addMeasurement(1, self.model.osc.Channel.vcc, 'TOP', reset = res)
+        self.model.osc.addMeasurement(2, self.model.osc.Channel.vcc, 'MEAN', reset = res)
+        self.model.osc.addMeasurement(3, self.model.osc.Channel.pwm, 'PDUTY', reset = res)
+        self.model.osc.addMeasurement(4, self.model.osc.Channel.FG, 'FREQUENCY', reset = res)
+        self.model.osc.addMeasurement(5, self.model.osc.Channel.current, 'MAXIMUM', reset = res)
+        self.model.osc.addMeasurement(6, self.model.osc.Channel.current, 'MEAN', reset = res)
+        self.model.osc.addMeasurement(7, self.model.osc.Channel.current, 'RMS', reset = res)
+        self.model.osc.addMeasurement(8, self.model.osc.Channel.current, 'PK2PK', reset = res)
 
     def maxCurrentTestAfterPopup(self, msg = 'msg', col=None, after_sec=8, hard_copy = False, hard_copy_file_name:str = 'hard_copy'):
         button = view.sg.popup_yes_no(msg, keep_on_top=True)
@@ -227,10 +232,31 @@ class Controller:
             if hard_copy:
                 self.job_list.insert(5, (0, self.model.osc.saveHardcopy, self.new_file_dir + hard_copy_file_name))
 
+class ScaleSetting:
+    def __init__(self, duty0:str, duty50:str, duty100:str, lowV:str, highV:str, start_scale:str, lock_scale:str, low_scale:str) -> None:
+        self.duty0 = duty0
+        self.duty50 = duty50
+        self.duty100 = duty100
+        self.lowV = lowV
+        self.highV = highV
+        self.start_scale = start_scale
+        self.lock_scale = lock_scale
+        self.low_scale = low_scale
+    
+    def getName(self) -> str:
+        return '%s\t ~ %s V  %s A/div'%(self.lowV, self.highV, self.start_scale) 
+
 class App():
     def __init__(self) -> None:
-        self._model = model.Model()
-        self._view = view.View()
+        parser = argparse.ArgumentParser(description="add command-line arguments")
+        parser.add_argument('-d', '--dummy', action='store_true', help='dummy device ids for testing without connecting devices')
+        parser.add_argument('-c', '--cprint', action='store_true', help='showing cprint message on GUI')
+        parser.add_argument('-s', '--stdout', action='store_true', help='showing stdout message on GUI')
+        
+        args = parser.parse_args()
+        print(args)
+        self._model = model.Model(dummy=args.dummy)
+        self._view = view.View(cprint=args.cprint, stdout=args.stdout)
         self._controller = Controller(self._model, self._view)
         self._view.set_controller(self._controller)
     
