@@ -146,10 +146,11 @@ class Model:
                     self.osc.update = True
                 else:
                     print("Please check new device: " + scopename)
+                    self.inst_dict[visa_add] = 'unknown'
             except visa.VisaIOError:
                 print("No instrument found: " + visa_add)
             except:
-                print("Error Communicating with this device")
+                print("Error Communicating with %s"%visa_add)
 
         # delete disconnected instrument
         if (self.inst_dict):
@@ -191,7 +192,8 @@ class Model:
             elif visa_add == 'USB0::0x0699::0x0358::C013019::INSTR': # signal generator
                 scopename = 'TEKTRONIX,AFG31052,C013019,SCPI:99.0 FV:1.5.2'
             else:
-                print("unknown device")
+                print("unknown device: %s"%visa_add)
+                scopename = visa_add
         return scopename
 
     def connectDevice(self, visa_add, inst:Instrument):
@@ -615,13 +617,13 @@ class Oscilloscope(Instrument):
         self.scope.write('HORIZONTAL:MODE:SAMPLERATE 1e6')
         self.setScale('H', scientific_notation='1e-3')
         self.setScale('V', self.Channel.vcc, '5')
-        self.setScale('V', self.Channel.pwm, '5')
-        self.setScale('V', self.Channel.FG, '5')
+        self.setScale('V', self.Channel.pwm, '2')
+        self.setScale('V', self.Channel.FG, '2')
         self.setScale('V', self.Channel.current, '1')
         self.setPosition('V', self.Channel.vcc, 1.0)
         self.setPosition('V', self.Channel.pwm, 1.0)
-        self.setPosition('V', self.Channel.FG, -1.0)
-        self.setPosition('V', self.Channel.current, -4.5)
+        self.setPosition('V', self.Channel.FG, -2.0)
+        self.setPosition('V', self.Channel.current, -4.0)
         self.setPosition('H', position=20)
         self.scope.write('TRIGGER:A:MODE AUTO')
 
