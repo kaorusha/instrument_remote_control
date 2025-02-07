@@ -239,7 +239,7 @@ class View():
         self.state = View.State.Idle
 
     def getSpecValue(self):
-        event, values = self.window.read()
+        event, values = self.window.read(timeout=10)
         spec = []
         for con in self.conditions:
             for col in self.cols:
