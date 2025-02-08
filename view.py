@@ -314,14 +314,14 @@ class View():
                 
             # popup window ask sample number
             key1 = 'Number'
-            dropdown_list_layout = sg.Spin([10,9,8,7,6,5,4,3,2,1], initial_value=self.controller.getSampleNo(), key=key1)
-            sample_num = self.popup_input("Choose sample number", keep_on_top=True, content_layout=dropdown_list_layout, key=key1)
+            dropdown_list_layout = sg.Spin([1,2,3,4,5,6,7,8,9,10], initial_value=self.controller.getSampleNo(), key=key1)
+            sample_num = self.popup_input("Sample Number:", keep_on_top=True, content_layout=dropdown_list_layout, key=key1)
             if sample_num == 1:
                 # choose a oscillator display scale
                 radio_text = [scale.getName() for scale in self.controller.scale_list]
                 radio_keys = range(len(radio_text))
                 radio_layout = [[sg.Radio(text, group_id=1, key=key)] for text, key in zip(radio_text, radio_keys)]
-                res = self.popup_input('choose current scale', content_layout=radio_layout, keep_on_top=True)
+                res = self.popup_input('Select Current Scale', content_layout=radio_layout, keep_on_top=True)
                 for key, value in res.items():
                     if value == True:
                         self.controller.scale_no = key
@@ -445,6 +445,7 @@ class View():
         :return:
         """
         sg.cprint(message, text_color='blue')
+        self.state = View.State.Idle
         pass
 
     def hide_message(self):
