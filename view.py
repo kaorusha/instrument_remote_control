@@ -196,7 +196,7 @@ def Collapsible(layout, key, title='', arrows=(sg.SYMBOL_DOWN, sg.SYMBOL_UP), co
                       [sg.pin(sg.Column(layout, key=key, visible=not collapsed, metadata=arrows))]], pad=(0,0))
 
 class View():
-    def __init__(self, cprint:bool = False, stdout:bool = False) -> None:
+    def __init__(self, cprint:bool = False, stdout:bool = False, default_filename:str = './report') -> None:
         '''
         initial layout of GUI
         
@@ -216,7 +216,7 @@ class View():
             [sg.Text('Power Supply:', size=(15,1)), sg.Combo(key='power', values={}, expand_x=True)],
             [sg.Text('Signal Generator:', size=(15,1)), sg.Combo(key='signal', values={}, expand_x=True)],
             [sg.Text('Oscilloscope:', size=(15,1)), sg.Combo(key='osc', values={}, expand_x=True)],
-            [sg.Text('Output Report:', size=(15,1)), sg.Input('report', key='-filename-', expand_x=True), sg.FileSaveAs(key='-saved as-')]
+            [sg.Text('Output Report:', size=(15,1)), sg.Input(default_filename, key='-filename-', expand_x=True), sg.FileSaveAs(key='-saved as-')]
         ]
         self.conditions = ('Duty 0%', 'Duty 50%', 'Duty 100%')
         self.cols = ('RPM', 'Current (A)')
