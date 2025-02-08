@@ -436,19 +436,6 @@ class Oscilloscope(Instrument):
         result.min_current_on_steady = float(self.queryMeasurement("PK2Pk", self.Channel.current))
         return result
 
-    def saveResult(self, sample_no = 1, new_file_name = 'output'):
-        result = self.acquireMeasure()
-        wb = openpyxl.load_workbook('風扇樣品檢驗報告(for RD).xlsx')
-        sheet = wb.active
-        row = str(sample_no + 10)
-        sheet['K' + row] = result.pwm
-        sheet['L' + row] = result.start_up_volt
-        sheet['M' + row] = result.max_current_on_steady
-        sheet['N' + row] = result.avg_op_current
-        sheet['O' + row] = result.max_start_up_current
-        sheet['Q' + row] = result.max_current_on_steady/result.min_current_on_steady
-        wb.save(new_file_name)
-
     def load_report(self, new_file_name):
         """
         open the current editing report, if not created yet, open the template as blank report"
