@@ -227,7 +227,9 @@ class View():
         layout = [
                 [Collapsible(section1, key=self.sec1_key, title='Change input instruments and output file directory', collapsed=True)],
                 [Collapsible(section2, key=self.sec2_key, title='Specify Spec', collapsed=True)],     
-                [sg.Submit('Start'), sg.Button('Pause'), sg.Button('Stop'), sg.Quit()],
+                [sg.Submit('    ⏵︎', key='Start'), 
+                 sg.Button('    ⏸︎', key='Pause'), 
+                 sg.Button('    ⏹︎', key='Stop'), sg.Quit()],
                 [sg.Multiline(size=(None, 5), expand_y=True, key='Multiline', write_only=True, reroute_cprint=cprint, reroute_stdout=stdout, autoscroll=True)]
         ]
 
