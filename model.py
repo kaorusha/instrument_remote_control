@@ -414,6 +414,7 @@ class Oscilloscope(Instrument):
             meas_no = self.measure.get((channel, type))
             # stop the window
             self.scope.write('ACQUIRE:STATE STOP')
+            self.scope.query("*OPC?") # wait for the badge to update
             res = self.scope.query("MEASUrement:MEAS%d:RESUlts:CURRentacq:MEAN?"%meas_no)
         
         if res == '9.91E+37\n': # the oscilloscope zero used this value
@@ -556,15 +557,15 @@ class Oscilloscope(Instrument):
         wb.save(new_file_name)
         wb.close()
 
-    def setScale(self, type: str = 'V', channel: Channel = Channel.current, scientific_notation: str = '2e-1'):
+    def setScale(self, type: Literal['H','V'] = 'V', channel: Channel = Channel.current, scale = 0.2):
         """
         :param type: 'H' set horizontal scale for numbers of seconds per division
                      'V' set vertical scale for numbers of voltage or ampere per division
         """
         if type == 'H':
-            self.scope.write('HORizontal:SCAle ' + scientific_notation)
+            self.scope.write('HORizontal:SCAle ' + str(scale))
         if type == 'V':
-            self.scope.write('DISplay:WAVEView1:CH%d:VERTical:SCAle '%channel.value + scientific_notation)
+            self.scope.write('DISplay:WAVEView1:CH%d:VERTical:SCAle %s'%(channel.value, str(scale)))
     
     def setPosition(self, type: str = 'V', channel: Channel = Channel.current, position:float = -3.50):
         """
@@ -612,11 +613,11 @@ class Oscilloscope(Instrument):
         self.scope.write('DISplay:WAVEView1:VIEWStyle OVERLAY')
         self.scope.write('HORIZONTAL:MODE MANUAL')
         self.scope.write('HORIZONTAL:MODE:SAMPLERATE 1e6')
-        self.setScale('H', scientific_notation='1e-3')
-        self.setScale('V', self.Channel.vcc, '5')
-        self.setScale('V', self.Channel.pwm, '2')
-        self.setScale('V', self.Channel.FG, '2')
-        self.setScale('V', self.Channel.current, '1')
+        self.setScale('H', scale=1e-3)
+        self.setScale('V', self.Channel.vcc, 5)
+        self.setScale('V', self.Channel.pwm, 2)
+        self.setScale('V', self.Channel.FG, 2)
+        self.setScale('V', self.Channel.current, 1)
         self.setPosition('V', self.Channel.vcc, 1.0)
         self.setPosition('V', self.Channel.pwm, 1.0)
         self.setPosition('V', self.Channel.FG, -2.0)
