@@ -438,11 +438,21 @@ class Oscilloscope(Instrument):
 
     def load_report(self, new_file_name):
         """
-        open the current editing report, if not created yet, open the template as blank report"
+        open the current editing report, if not created yet, open the template as blank report, and create specified directory"
         """
         if os.path.exists(new_file_name):
             return openpyxl.load_workbook(new_file_name)
         else:
+            #  Create the directory with error handling
+            try:
+                dir = os.path.dirname(new_file_name)
+                os.makedirs(dir)
+                print(f"Directory '{dir}' created successfully")
+            except FileExistsError:
+                print(f"Directory '{dir}' already exists")
+            except Exception as e:
+                print(f"An error occurred: {e}")
+            
             return openpyxl.load_workbook('風扇樣品檢驗報告(for RD).xlsx')
     
     def metric_prefix(self, num: float, length:int = 5):
