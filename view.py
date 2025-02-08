@@ -331,8 +331,8 @@ class View():
                 self.state = View.State.Idle
                 return
             # change the "status" element to be the value of "sample number" element
-            self.show_success("Start testing sample number " + str(sample_num) + "...")
             self.controller.start(sample_num, values['-filename-'] + '.xlsx')
+            self.show_success("Start testing sample number " + str(sample_num) + "...")
     
     def popup_input(self, message, title=None, button_color=None, content_layout=None, key=None,
                    background_color=None, icon=None, font=None, no_titlebar=False,
@@ -445,7 +445,6 @@ class View():
         :return:
         """
         sg.cprint(message, text_color='blue')
-        self.state = View.State.Idle
         pass
 
     def hide_message(self):
