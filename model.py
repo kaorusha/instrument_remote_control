@@ -564,10 +564,12 @@ class Oscilloscope(Instrument):
         """
         if type == 'H':
             self.scope.write('HORizontal:SCAle ' + str(scale))
-        if type == 'V':
+        elif type == 'V':
             self.scope.write('DISplay:WAVEView1:CH%d:VERTical:SCAle %s'%(channel.value, str(scale)))
+        else:
+            warnings.warn('setScale: wrong type: %s'%type)
     
-    def setPosition(self, type: str = 'V', channel: Channel = Channel.current, position:float = -3.50):
+    def setPosition(self, type: Literal['H', 'V'] = 'V', channel: Channel = Channel.current, position:float = -3.50):
         """
         Adjust the vertical position of the specific channel signal waveform
         :param type: 'V' set vertical position for specified channel
@@ -578,8 +580,10 @@ class Oscilloscope(Instrument):
         """
         if type == 'V':
             self.scope.write('DISplay:WAVEView1:CH%d:VERTical:POSition %f'%(channel.value, position))
-        if type == 'H':
+        elif type == 'H':
             self.scope.write('HORIZONTAL:POSITION %f'%position)
+        else:
+            warnings.warn('setPosition: wrong type: %s'%type)
 
     def addMeasurement(self, num:int = 1, channel: Channel = Channel.current, type:str = 'MEAN', reset:bool = False):
         '''
