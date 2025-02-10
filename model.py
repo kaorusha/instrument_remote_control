@@ -622,7 +622,7 @@ class Oscilloscope(Instrument):
         self.setScale('V', self.Channel.pwm, 2)
         self.setScale('V', self.Channel.FG, 2)
         self.setScale('V', self.Channel.current, 1)
-        self.setPosition('V', self.Channel.vcc, 1.7)
+        self.setPosition('V', self.Channel.vcc, 2.0)
         self.setPosition('V', self.Channel.pwm, 1.5)
         self.setPosition('V', self.Channel.FG, -1.5)
         self.setPosition('V', self.Channel.current, -4.0)
