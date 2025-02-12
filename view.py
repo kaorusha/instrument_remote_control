@@ -230,7 +230,7 @@ class View():
                 [sg.Submit('    ⏵︎', key='Start'), 
                  sg.Button('    ⏸︎', key='Pause'), 
                  sg.Button('    ⏹︎', key='Stop'), sg.Quit()],
-                [sg.Multiline(size=(None, 5), expand_y=True, key='Multiline', write_only=True, reroute_cprint=cprint, reroute_stdout=stdout, autoscroll=True)]
+                [sg.Multiline('Wait for connecting devices...\n', size=(None, 5), expand_y=True, key='Multiline', write_only=True, reroute_cprint=cprint, reroute_stdout=stdout, autoscroll=True)]
         ]
 
         self.window = sg.Window('Fan assembly auto test', layout, auto_size_buttons=False, keep_on_top=True, grab_anywhere=True)
