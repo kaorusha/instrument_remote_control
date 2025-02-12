@@ -355,6 +355,17 @@ class Oscilloscope(Instrument):
             print(self.scope.query("ALLEV?"))
 
         # Save file to local PC
+        if not os.path.exists(file_name):
+            #  Create the directory with error handling
+            try:
+                dir = os.path.dirname(file_name)
+                os.makedirs(dir)
+                print(f"Directory '{dir}' created successfully")
+            except FileExistsError:
+                pass
+            except Exception as e:
+                print(f"An error occurred: {e}")
+        
         fid = open(file_name + '.png', 'wb')
         fid.write(data)
         fid.close()
