@@ -13,11 +13,12 @@ class Controller:
         self.new_file_dir = ''
         self.start_time = 0
         self.last_job = None
-        self.scale_list = [ScaleSetting('2e-1', '1', '1', '7', '13.2', '1', '1', '1'),
-                           ScaleSetting('2e-1', '1', '2', '7', '13.2', '2', '2', '2'),
-                           ScaleSetting('2e-1', '1', '5', '7', '13.2', '5', '5', '5'),
-                           ScaleSetting('2e-1', '1', '5', '9', '13.2', '5', '5', '5'),
-                           ScaleSetting('2e-1', '1', '5', '10.8', '13.2', '5', '5', '5')]
+        self.scale_list = [ScaleSetting(12.0, 7.0,    13.2, 0.2, 1, 1, 1, 1, 1, 1),
+                           ScaleSetting(12.0, 7.0,    13.2, 0.2, 2, 2, 2, 2, 2, 1),
+                           ScaleSetting(12.0, 7.0,    13.2, 0.2, 5, 5, 5, 5, 5, 2),
+                           ScaleSetting(12.0, 9.0,    13.2, 0.2, 5, 5, 5, 5, 5, 2),
+                           ScaleSetting(12.0, 10.8,   13.2, 0.2, 5, 5, 5, 5, 5, 2),
+                           ScaleSetting(48.0, 36.0,   60.0, 0.2, 1, 1, 1, 1, 1, 1)]
         self.scale_no = 0
 
     def start(self, sample_no:int, dir:str):
@@ -48,6 +49,8 @@ class Controller:
         """
         self.model.power.setOutputOff()
         self.job_list.clear()
+        # in the end of the test, add an auto stop, change the state machine, for a new round to start
+        self.view.state = view.View.State.Stopped
 
     def runTest(self):
         """
@@ -101,24 +104,19 @@ class Controller:
         self.job_list.append((0, self.model.power.reset))
         self.job_list.append((0, self.model.signal.reset))
         self.job_list.append((0, self.setupDisplay, 'Reset Measurement badge?'))
-        self.job_list.append((0, self.model.power.setVoltage, 12))
-        self.job_list.append((0, self.model.power.setCurrent, 5))
+        self.job_list.append((0, self.model.power.setVoltage, self.scale_list[self.scale_no].ratedV))
+        self.job_list.append((0, self.model.power.setCurrent, 10))
         self.job_list.append((0, self.model.signal.setPWMOutput))
         self.job_list.append((0, self.meanRPMandCurrentOfPWM, 100, 2, True, '100_pwm', ['H'], ['I','N'], ['M']))
         self.job_list.append((0, self.meanRPMandCurrentOfPWM, 50, 2, True, '50_pwm', ['F'], ['G']))
         self.job_list.append((0, self.meanRPMandCurrentOfPWM, 0, 2, True, '0_pwm', ['D'], ['E']))
-        self.job_list.append((0, self.model.power.setVoltage, 7))
-        self.job_list.append((0, self.model.power.setCurrent, 5))
-        self.job_list.append((0, self.model.signal.setPWMDuty, 100))
-        self.job_list.append((0, self.model.signal.setOutputOn))
-        self.job_list.append((0, self.model.osc.scope.write, 'ACQUIRE:STATE RUN'))
-        self.job_list.append((2, self.model.osc.check_PWM_and_FG, self.sample_no, self.new_file_name, ['K'], ['L', 'R']))
-        self.job_list.append((0, self.model.power.setOutputOff))
-        self.job_list.append((0, self.maxCurrentTestAfterPopup, 'Measure Max. Start up Current?', ['O'], 7, True, 'max_start_up_cur'))
-        self.job_list.append((0, self.maxCurrentTestAfterPopup, 'Measure Max. Lock Current?', ['P'], 7, True, 'lock'))
+        self.job_list.append((0, self.lowVoltage, None, ['L']))
+        self.job_list.append((0, self.maxCurrent, None, ['O'], True, 'max_start_up_cur', self.scale_list[self.scale_no].start))
+        self.job_list.append((0, self.maxCurrent, 'Measure Max. Lock Current?', ['P'], True, 'lock', self.scale_list[self.scale_no].lock))
         self.job_list.append((0, self.writeSpecFromGUI, ['D','E','F','G','H','I']))
-        self.job_list.append((0, self.view.show_success,'Test completed.'))
-
+        self.job_list.append((0, self.view.show_success,'Sample No.%d Test completed.'%self.sample_no))
+        self.job_list.append((0, self.stop))
+        
     def resumeTest(self):
         """
         resume from pause
@@ -163,6 +161,7 @@ class Controller:
             self.view.window[type].update(values = inst.list_id)
             inst.update = False
             if type == 'osc':
+                self.view.show_success('Oscilloscope ready for remote control')
                 view.sg.popup_ok("Check signal generator wiring:\n ch1\t vcc,\n ch2\t pwm,\n ch3\t fg,\n ch4\t curr", keep_on_top=True)
             if len(inst.list_id) == 1:
                 self.view.window[type].update(value = inst.list_id[0])
@@ -173,13 +172,46 @@ class Controller:
         self.model.signal.setOutputOn()
         self.model.power.setOutputOn()
         if pwm == 0.0:
-            self.model.osc.setScale()
-        self.model.osc.scope.write('ACQUIRE:STATE RUN')
-        self.job_list.insert(0, (10, self.model.osc.measure_RPM_and_Curr, pwm, fg, self.sample_no, self.new_file_name, col_rpm, col_curr, col_curr_max))
-        if hard_copy:
-            self.job_list.insert(1, (0, self.model.osc.saveHardcopy, self.new_file_dir + hard_copy_file_name))
+            self.model.osc.setScale(scale=self.scale_list[self.scale_no].duty0)
+        elif pwm == 50.0:
+            self.model.osc.setScale(scale=self.scale_list[self.scale_no].duty50)
+        elif pwm == 100.0:
+            self.model.osc.setScale(scale=self.scale_list[self.scale_no].duty100)
+            # delete meas1 and add new measurement
+            self.model.osc.scope.write('MEASUREMENT:DELETE "MEAS1"')
+            self.model.osc.addMeasurement(9, self.model.osc.Channel.current, 'PDUTY', reset = True)
 
+        self.model.osc.scope.write('ACQUIRE:STATE RUN')
+        # check signal channel has value
+        if pwm == 50.0:
+            self.job_list.insert(0, (1, self.model.osc.check_PWM_and_FG, self.sample_no, self.new_file_name, ['K'], ['R']))
+        
+        self.job_list.insert(0, (10, self.model.osc.measure_RPM_and_Curr, pwm, fg, self.sample_no, self.new_file_name, col_rpm, col_curr, col_curr_max))
+        # add meas1 back
+        if pwm == 100.0:
+            self.job_list.insert(1, (0, self.model.osc.scope.write, 'MEASUREMENT:DELETE "MEAS9"'))
+            self.job_list.insert(2, (0, self.model.osc.addMeasurement, 1, self.model.osc.Channel.vcc, 'TOP', True))
+
+        if hard_copy:
+            hard_copy_file_name = 's%d/%s_s%d'%(self.getSampleNo(), hard_copy_file_name, self.getSampleNo())
+            self.job_list.insert(1, (0, self.model.osc.saveHardcopy, self.new_file_dir + hard_copy_file_name))
+        
+    def lowVoltage(self, col_pwm = None, col_fg = None):
+        self.model.power.setVoltage(self.scale_list[self.scale_no].lowV)
+        self.model.power.setCurrent(10)
+        self.model.signal.setPWMDuty(10)
+        self.model.signal.setOutputOn()
+        self.model.power.setOutputOn()
+        self.model.osc.setScale(scale=self.scale_list[self.scale_no].low)
+        self.model.osc.scope.write('ACQUIRE:STATE RUN')
+        self.job_list.insert(0, (3, self.model.osc.check_PWM_and_FG, self.sample_no, self.new_file_name, col_pwm, col_fg))
+        self.job_list.insert(1, (0, self.model.power.setOutputOff))
+    
     def writeSpecFromGUI(self, cols):
+        '''
+        write spec from user input GUI box
+        write low voltage spec from user option
+        '''
         wb = self.model.osc.load_report(self.new_file_name)
         sheet = wb.active
         spec = self.view.getSpecValue()
@@ -187,6 +219,9 @@ class Controller:
         for s, col in zip(spec, cols):
             if (sheet[col + row].value == None):
                 sheet[col + row] = s
+        
+        if sheet['L' + row].value == None:
+            sheet['L' + row] = '%s V'%self.scale_list[self.scale_no].lowV
         wb.save(self.new_file_name)
         wb.close()
 
@@ -205,17 +240,17 @@ class Controller:
         self.model.osc.addMeasurement(7, self.model.osc.Channel.current, 'RMS', reset = res)
         self.model.osc.addMeasurement(8, self.model.osc.Channel.current, 'PK2PK', reset = res)
 
-    def maxCurrentTestAfterPopup(self, msg = 'msg', col=None, after_sec=8, hard_copy = False, hard_copy_file_name:str = 'hard_copy'):
-        button = view.sg.popup_yes_no(msg, keep_on_top=True)
+    def maxCurrent(self, popup_msg = None, col=None, hard_copy = False, hard_copy_file_name:str = 'hard_copy', scale = 1.0):
+        button = view.sg.popup_yes_no(popup_msg, keep_on_top=True) if popup_msg is not None else 'Yes'
 
         if button != 'Yes':
             return None
         else:
-            self.model.power.setVoltage(13.2)
-            self.model.power.setCurrent(5)
+            self.model.power.setVoltage(self.scale_list[self.scale_no].highV)
+            self.model.power.setCurrent(10)
             self.model.signal.setPWMDuty(100)
-            self.model.osc.setScale('H', self.model.osc.Channel.current, '1')
-            self.model.osc.setScale('V', self.model.osc.Channel.current, '1')
+            self.model.osc.setScale(type='H', scale=self.scale_list[self.scale_no].max_curr_horizontal)
+            self.model.osc.setScale(scale = scale)
             self.model.osc.scope.write('acquire:state 0') # stop
             self.model.osc.setTrigger(self.model.osc.Channel.current, 2.0)
             self.model.osc.scope.write('acquire:stopafter SEQUENCE') # single
@@ -225,26 +260,38 @@ class Controller:
             # ready for test
             self.job_list.insert(0, (0, self.model.signal.setOutputOn))
             self.job_list.insert(1, (0, self.model.power.setOutputOn))
+            after_sec = 7 * self.scale_list[self.scale_no].max_curr_horizontal
             # make sure the sequence data has acquired
+            # use *opc? to ensure the output display are shown
             self.job_list.insert(2, (after_sec, self.model.osc.scope.query, '*opc?'))
-            self.job_list.insert(3, (0, self.model.osc.measure_RPM_and_Curr, 100, 2, self.sample_no, self.new_file_name, None, None, col))
-            self.job_list.insert(4, (0, self.model.power.setOutputOff))
+            self.job_list.insert(3, (0, self.model.power.setOutputOff))
+            self.job_list.insert(4, (0, self.model.osc.measure_RPM_and_Curr, 100, 2, self.sample_no, self.new_file_name, None, None, col))
             if hard_copy:
+                hard_copy_file_name = 's%d/%s_s%d'%(self.getSampleNo(), hard_copy_file_name, self.getSampleNo())
                 self.job_list.insert(5, (0, self.model.osc.saveHardcopy, self.new_file_dir + hard_copy_file_name))
 
 class ScaleSetting:
-    def __init__(self, duty0:str, duty50:str, duty100:str, lowV:str, highV:str, start_scale:str, lock_scale:str, low_scale:str) -> None:
-        self.duty0 = duty0
-        self.duty50 = duty50
-        self.duty100 = duty100
+    def __init__(self, ratedV: float, lowV:float, highV:float,
+                 duty0:float, duty50:float, duty100:float, 
+                 start:float, lock:float, low:float,
+                 max_curr_horizontal: float) -> None:
+        # voltage spec
+        self.ratedV = ratedV
         self.lowV = lowV
         self.highV = highV
-        self.start_scale = start_scale
-        self.lock_scale = lock_scale
-        self.low_scale = low_scale
+        # vertical scale of current channel (A/div) of duty test
+        self.duty0 = duty0 
+        self.duty50 = duty50 
+        self.duty100 = duty100
+         # horizontal scale of time (sec/div) of max current test
+        self.max_curr_horizontal = max_curr_horizontal
+        # vertical scale of current channel (A/div) of start/lock/low voltage test
+        self.start = start
+        self.lock = lock
+        self.low = low
     
     def getName(self) -> str:
-        return '%s\t ~ %s V  %s A/div'%(self.lowV, self.highV, self.start_scale) 
+        return '%.1f\t ~ %.1f V  %i A/div'%(self.lowV, self.highV, self.start) 
 
 class App():
     def __init__(self) -> None:
@@ -256,10 +303,15 @@ class App():
         args = parser.parse_args()
         print(args)
         self._model = model.Model(dummy=args.dummy)
-        self._view = view.View(cprint=args.cprint, stdout=args.stdout)
+        self._view = view.View(cprint=args.cprint, stdout=args.stdout, default_filename=self.dir_format())
         self._controller = Controller(self._model, self._view)
         self._view.set_controller(self._controller)
     
+    def dir_format(self):
+        t = time.localtime()
+        dir = './test%i%02i%02i_%02i%02i/report'%(t.tm_year, t.tm_mon, t.tm_mday, t.tm_hour, t.tm_min)
+        return dir
+
     def findDevice(self):
         return ""
 
