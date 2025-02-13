@@ -334,6 +334,7 @@ class App():
             self._view.fsm(event, values)
             if self._view.state == self._view.State.Testing:
                 self._controller.runTest()
+        self._controller.stop()
         self._view.window.close()
 
 if __name__ == '__main__':
