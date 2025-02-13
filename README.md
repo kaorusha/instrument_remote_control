@@ -6,23 +6,22 @@ programmatic control instrument system to run remote control for measuring prope
 
 ```mermaid
 graph TB;
-    Start(Start app)-->ShowDevice[Show device];
-    Start-->ChooseSampleNo[Choose sample number]-->PressStartButton[Press start button]-->IsAvailable{All instruments ready?};
+    ExecuteApp(Execute app)-->ShowDevice[Show device];
+    ExecuteApp-->Start-->ChooseSampleNo[Choose sample number]-->ChooseScale[Choose Voltage and Scale]-->IsAvailable{All instruments ready?};
     IsAvailable-->|No|Rewire[Rewire the device]-->ShowDevice
     Rewire-->IsAvailable
     IsAvailable-->|Yes|StartTest[Start test]-->PrintLog[Print test status log]
-    Start-->PressStartButton
-    Start-->ChooseReportSavingDirectory[Choose Report Saving Directory]-->PressStartButton
-    ChooseReportSavingDirectory<-->ChooseSampleNo
+    ExecuteApp-->ChooseReportSavingDirectory[Choose Report Saving Directory]-->Start
     StartTest-->Pause{Pause?}
     StartTest-->Stop{Stop?}
     Pause-->|On|PowerOff[Power off]-->StartTest
-    Pause-->|Off|Continue
-    Stop-->|On|PowerOffAndSaveReport[Power off and save report]
-    Stop-->|Off|Continue
-    StartTest-->Continue-->TestComplete-->PowerOffAndSaveReport
-    PowerOffAndSaveReport-->Cancel(Cancel)
+    Pause-->|Off|StartTest
+    Stop-->|On|PowerOff[Power off]
+    Stop-->|Off|Start
+    StartTest-->TestComplete[Test Complete]-->WriteReport[Write Spec to Report]-->PowerOff-->Cancel(Cancel)
     PowerOff-->Stop
+    ExecuteApp-->Cancel
+    ExecuteApp-->InputSpec[Input Spec]-->Start
 ```
 
 ## Dependency
