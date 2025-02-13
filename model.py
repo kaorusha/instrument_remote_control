@@ -636,7 +636,7 @@ class Oscilloscope(Instrument):
         self.setPosition('V', self.Channel.vcc, 2.0)
         self.setPosition('V', self.Channel.pwm, 1.5)
         self.setPosition('V', self.Channel.FG, -1.5)
-        self.setPosition('V', self.Channel.current, -4.0)
+        self.setPosition('V', self.Channel.current, -3.7)
         self.setPosition('H', position=20)
         self.scope.write('TRIGGER:A:MODE AUTO')
 
