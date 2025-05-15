@@ -1,8 +1,10 @@
+from html import parser
 from pymodbus import FramerType
 from pymodbus.client import ModbusSerialClient
 from pymodbus.exceptions import ModbusIOException
 import time
 import csv
+import argparse
 
 def read_counter_data(name: str = 'COM4', 
                       slave_address: int = 0, 
@@ -10,6 +12,15 @@ def read_counter_data(name: str = 'COM4',
                       quantity: int = 2, 
                       sleep_time: int = 5, 
                       output_file: str = 'counter_data.csv'):
+    ''' Read counter data from Modbus device through rs485
+    Args:
+        name (str): Serial port name (example: COM4 or /dev/ttyUSB0)
+        slave_address (int): Slave address(integer) of the Modbus device
+        starting_address (int): Starting address to read from
+        quantity (int): Number of registers to read
+        sleep_time (int): Time to wait before next read
+        output_file (str): Output file name to save data
+    '''
     try:
         # Configure the serial connection
         client = ModbusSerialClient(
@@ -47,8 +58,11 @@ def read_counter_data(name: str = 'COM4',
         print("Connection closed.")
 
 def save_data_to_file(data, filename='counter_data.csv'):
-    # Append data to CSV file
-    # Check if file exists and is not empty
+    ''' Save data to CSV file
+    Args:
+        data (list): Data to be saved
+        filename (str): Name of the file to save data
+    '''
     with open(filename, 'a', newline='') as csvfile:
         writer = csv.writer(csvfile)
         # Write header if file is empty
@@ -57,6 +71,12 @@ def save_data_to_file(data, filename='counter_data.csv'):
         writer.writerow(data)
 
 def merge_registers_to_int(register_array):
+    ''' Merge 2 registers to a single integer
+    Args:
+        register_array (list): List of registers to be merged
+    Returns:
+        int: Merged integer value
+    '''
     # Convert register array to integer
     result = 0
     for register in register_array:
@@ -64,4 +84,12 @@ def merge_registers_to_int(register_array):
     return result
 
 if __name__ == "__main__":
-    read_counter_data()
+    parser = argparse.ArgumentParser(description='Read and save counter data from Modbus device through rs485')
+    parser.add_argument('serial_port', type=str, default='COM4', help='Serial port name (example: COM4 or /dev/ttyUSB0)')
+    parser.add_argument('slave_id', type=int, default=0, help='Slave address(integer) of the Modbus device')
+    parser.add_argument('file_name', type=str, default='counter_data.csv', help='Output file name to save data')
+    args = parser.parse_args()
+    # Call the function with command line arguments
+    read_counter_data(name=args.serial_port,
+                      slave_address=args.slave_id,
+                      output_file=args.file_name)
