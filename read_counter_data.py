@@ -1,4 +1,3 @@
-from html import parser
 from pymodbus import FramerType
 from pymodbus.client import ModbusSerialClient
 from pymodbus.exceptions import ModbusIOException
