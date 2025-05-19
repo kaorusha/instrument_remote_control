@@ -101,13 +101,11 @@ def merge_registers_to_int(register_array):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Read and save counter data from Modbus device through rs485')
     parser.add_argument('serial_port', type=str, default='COM4', help='Serial port name (example: COM4 or /dev/ttyUSB0)')
-    parser.add_argument('slave_id', nargs='+', type=int, default=0, help='Slave address(integer) of the Modbus device')
-    parser.add_argument('file_name', nargs='+', type=str, default='counter_data.csv', help='Output file name to save data')
+    parser.add_argument('slave_id', nargs='+', type=int, help='Slave address(integer) of the Modbus device')
     args = parser.parse_args()
-    # Check if the number of slave addresses and file names are equal
-    if len(args.slave_id) != len(args.file_name):
-        print("Error: The number of slave addresses and file names must be equal.")
-        exit(1)
+    
+    args.file_name = [f'counter_data_{slave_id}.csv' for slave_id in args.slave_id]
+
     print(f"Serial port: {args.serial_port}")
     print(f"Slave addresses: {args.slave_id}")
     print(f"Output file names: {args.file_name}")
@@ -115,4 +113,4 @@ if __name__ == "__main__":
     read_counter_data(name=args.serial_port,
                       slave_addresses=args.slave_id,
                       output_files=args.file_name,
-                      sleep_time=10)
+                      sleep_time=5)
