@@ -226,19 +226,8 @@ class Controller:
         wb.close()
 
     def setupDisplay(self, msg = 'msg'):
-        self.model.osc.setMeasurement()
         res = True if view.sg.popup_yes_no(msg, keep_on_top=True) == 'Yes' else False
-        # add measurements
-        if res:
-            self.model.osc.scope.write('MEASUrement:DELETEALL')
-        self.model.osc.addMeasurement(1, self.model.osc.Channel.vcc, 'TOP', reset = res)
-        self.model.osc.addMeasurement(2, self.model.osc.Channel.vcc, 'MEAN', reset = res)
-        self.model.osc.addMeasurement(3, self.model.osc.Channel.pwm, 'PDUTY', reset = res)
-        self.model.osc.addMeasurement(4, self.model.osc.Channel.FG, 'FREQUENCY', reset = res)
-        self.model.osc.addMeasurement(5, self.model.osc.Channel.current, 'MAXIMUM', reset = res)
-        self.model.osc.addMeasurement(6, self.model.osc.Channel.current, 'MEAN', reset = res)
-        self.model.osc.addMeasurement(7, self.model.osc.Channel.current, 'RMS', reset = res)
-        self.model.osc.addMeasurement(8, self.model.osc.Channel.current, 'PK2PK', reset = res)
+        self.model.osc.setMeasurement(reset= res)
 
     def maxCurrent(self, popup_msg = None, col=None, hard_copy = False, hard_copy_file_name:str = 'hard_copy', scale = 1.0):
         button = view.sg.popup_yes_no(popup_msg, keep_on_top=True) if popup_msg is not None else 'Yes'
