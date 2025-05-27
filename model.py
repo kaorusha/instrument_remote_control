@@ -415,7 +415,18 @@ class Oscilloscope(Instrument):
         max_start_up_current = 0.0
         min_current_on_steady = 0.0
 
-    def queryMeasurement(self, type = "MEAN", channel:Channel = Channel.vcc, mode:Literal["immed", "badge"] = "immed"):
+    def queryMeasurement(self, type = "MEAN", channel:Channel = Channel.vcc, mode:Literal["immed", "badge"] = "immed",
+                         log:bool = True):
+        """
+        query the measurement value from oscilloscope
+        Args:
+            type (str): measurement type, check oscilloscope manual
+            channel (Channel): the channel to query
+            mode (str): 'immed' for immediate measurement, 'badge' for badge measurement
+            log (bool): if true, print the result
+        Returns:
+            str: the measurement value as string
+        """       
         if mode == 'immed':
             self.scope.write("MEASUREMENT:IMMED:TYPE " + type)
             self.scope.write("MEASUREMENT:IMMED:SOURCE CH" + str(channel))
@@ -431,7 +442,8 @@ class Oscilloscope(Instrument):
         if res == '9.91E+37\n': # the oscilloscope zero used this value
             res = '0'
         # log
-        print("channel " + str(channel.value) + "(" + type + "): " + res) 
+        if log:
+            print("channel " + str(channel.value) + "(" + type + "): " + res) 
         return res
     
     # measureing fan speed in RPM through FG signal frequency
@@ -467,9 +479,13 @@ class Oscilloscope(Instrument):
             
             return openpyxl.load_workbook('風扇樣品檢驗報告(for RD).xlsx')
     
-    def metric_prefix(self, num: float, length:int = 5):
+    def metric_prefix(self, num: float, length:int = 5, log:bool = True):
         '''
         formatting long number into numbers of thousands, with fixed total length
+        Args:
+            num (float): the number to be formatted
+            length (int): the total length of the formatted number, including decimal point
+            log (bool): if true, print the converting process
         '''
         if num < 1000.0 : # prevent math domain error
             return num
@@ -478,7 +494,8 @@ class Oscilloscope(Instrument):
         int_len = len(str(int(original_value)))
         round_len = length - 1 - int_len  # including point
         new_value = np.round(original_value, round_len)
-        print('metric_prefix converting %f to %f'%(num, new_value))
+        if log:
+            print('metric_prefix converting %f to %f'%(num, new_value))
         return new_value * (1000**prefix)
     
     def measure_RPM_and_Curr(self, duty = 0.0, fg = 3, sample_no = 1, new_file_name = 'output', column_rpm=None, column_curr=None,
@@ -620,7 +637,12 @@ class Oscilloscope(Instrument):
     def turnOn(self, channel: Channel):
         self.scope.write(':DISPLAY:WAVEVIEW1:CH%d:STATE 1'%channel.value)
 
-    def setMeasurement(self):
+    def setMeasurement(self, res:bool = False):
+        '''
+        Set up the oscilloscope for measurement, turn on all channels and set scale and position
+        Args:
+            res (bool): if true, reset the oscilloscope before setting up
+        '''
         self.turnOn(self.Channel.vcc)
         self.turnOn(self.Channel.pwm)
         self.turnOn(self.Channel.FG)
@@ -639,6 +661,17 @@ class Oscilloscope(Instrument):
         self.setPosition('V', self.Channel.current, -3.7)
         self.setPosition('H', position=20)
         self.scope.write('TRIGGER:A:MODE AUTO')
+        if res:
+            # add measurements
+            self.scope.write('MEASUrement:DELETEALL')
+            self.addMeasurement(1, self.Channel.vcc, 'TOP', reset = res)
+            self.addMeasurement(2, self.Channel.vcc, 'MEAN', reset = res)
+            self.addMeasurement(3, self.Channel.pwm, 'PDUTY', reset = res)
+            self.addMeasurement(4, self.Channel.FG, 'FREQUENCY', reset = res)
+            self.addMeasurement(5, self.Channel.current, 'MAXIMUM', reset = res)
+            self.addMeasurement(6, self.Channel.current, 'MEAN', reset = res)
+            self.addMeasurement(7, self.Channel.current, 'RMS', reset = res)
+            self.addMeasurement(8, self.Channel.current, 'PK2PK', reset = res)
 
     def setTrigger(self, channel: Channel = Channel.current, level:float = 2.0):
         self.scope.write('TRIGGER:A:MODE NORMAL')
