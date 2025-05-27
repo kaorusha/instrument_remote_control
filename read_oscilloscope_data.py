@@ -3,6 +3,7 @@ This script reads data from an oscilloscope and saves it to a csv file.
 '''
 import model
 import csv
+import datetime
 import time
 
 def connect_oscilloscope():
@@ -17,23 +18,28 @@ def connect_oscilloscope():
     
     return model_
 
-def read_oscilloscope_data(filename: str = 'oscilloscope_data.csv', sleep_time:float = 0.1):
-    ''' Read RPM and current from the oscilloscope
+def read_oscilloscope_data(filename: str = 'oscilloscope_data.csv', sleep_time:float = 1.0):
+    ''' Read RPM and current from the oscilloscope and save it to a CSV file.
+    (Because we use string transfer and it is slow, may delay if the sleep_time is less than 0.5sec)
     Args:
-        model (model.Model): The oscilloscope model object
-    Returns:
-        tuple: RPM and current values
+        filename (str): Name of the file to save data
+        sleep_time (float): Time to wait between readings in seconds
     '''
     # connect to the oscilloscope
     model = connect_oscilloscope()
+    model.osc.setMeasurement(res=True)
+    model.osc.scope.write('acquire:stopafter RUNSTop')
+    model.osc.scope.write('acquire:state 1') # run
+    fg = 2 # 2 pulses per revolution
 
     try:
     
         while(True):
             # Read RPM and current from the oscilloscope
-            fg = 2 # 2 pulses per revolution
-            rpm = model.osc.metric_prefix(float(model.osc.queryMeasurement("FREQUENCY", model.osc.Channel.FG))) / fg * 60.0
-            curr = float(model.osc.queryMeasurement(channel=model.osc.Channel.current))
+            rpm = float(model.osc.queryMeasurement("FREQUENCY", model.osc.Channel.FG, 'badge', log=False)) / fg * 60.0
+            curr = float(model.osc.queryMeasurement(channel=model.osc.Channel.current, mode='badge', log=False))
+            
+            model.osc.scope.write('acquire:state 1') # run
             save_to_csv(rpm, curr, filename=filename)
             time.sleep(sleep_time)
 
@@ -60,10 +66,12 @@ def save_to_csv(rpm: float, curr: float, filename: str = 'oscilloscope_data.csv'
         # Write header if file is empty
         if file.tell() == 0:
             writer.writerow(['Timestamp', 'RPM', 'Current'])
-        timestamp = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
-        writer.writerow([timestamp, rpm, curr])
+        now = datetime.datetime.now()
+        # Format timestamp and write data, removing the last 5 digits of microseconds
+        timestamp = now.strftime('%Y-%m-%d %H:%M:%S.%f')
+        writer.writerow([timestamp[:-5], rpm, curr])
 
 if __name__ == "__main__":
-    read_oscilloscope_data(filename='oscilloscope_data.csv', sleep_time=0.1)
+    read_oscilloscope_data(filename='oscilloscope_data.csv', sleep_time=1.0)
     print("Data reading completed.")    
 # This script reads data from an oscilloscope and saves it to a csv file.
